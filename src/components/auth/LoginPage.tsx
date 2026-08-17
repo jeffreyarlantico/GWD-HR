@@ -51,18 +51,6 @@ export const LoginPage: React.FC = () => {
     }, 300);
   };
 
-  const handleQuickLogin = (role: Role) => {
-    const pwd = role === 'ADMIN' ? ADMIN_PASSWORD : VIEWER_PASSWORD;
-    setSelectedRole(role);
-    setPassword(pwd);
-    setError('');
-    setIsLoading(true);
-    setTimeout(() => {
-      login(role);
-      setIsLoading(false);
-    }, 300);
-  };
-
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between font-sans antialiased relative overflow-hidden selection:bg-amber-500 selection:text-slate-950">
       
@@ -220,27 +208,6 @@ export const LoginPage: React.FC = () => {
               )}
             </button>
           </form>
-
-          {/* Quick Direct Sign-In Shortcuts */}
-          <div className="pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400">
-            <span className="text-[11px] text-slate-500">Quick Portal Access:</span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('ADMIN')}
-                className="px-2.5 py-1 bg-emerald-950/50 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-800/60 rounded-lg text-[11px] font-semibold transition"
-              >
-                1-Click Admin Login
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('VIEW_ONLY')}
-                className="px-2.5 py-1 bg-blue-950/50 hover:bg-blue-900/60 text-blue-300 border border-blue-800/60 rounded-lg text-[11px] font-semibold transition"
-              >
-                1-Click Viewer Login
-              </button>
-            </div>
-          </div>
 
         </div>
       </main>
