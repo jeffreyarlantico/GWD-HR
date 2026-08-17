@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useHRIS } from '../../context/HRISContext';
 import { DistrictLogo } from './DistrictLogo';
 import { 
   LayoutDashboard, 
@@ -12,7 +13,8 @@ import {
   Info,
   Shield,
   Eye,
-  LogOut
+  LogOut,
+  Trash2
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -23,6 +25,9 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onTabChange }) => {
   const { role, logout } = useAuth();
+  const { deletedEmployees, deletedSchools } = useHRIS();
+
+  const totalDeleted = (deletedEmployees?.length || 0) + (deletedSchools?.length || 0);
 
   const navItems = [
     {
@@ -59,6 +64,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onTab
       id: 'leave-history',
       label: 'Leave Records',
       icon: CalendarOff,
+      adminOnly: false,
+    },
+    {
+      id: 'deleted-records',
+      label: 'Deleted Records',
+      icon: Trash2,
+      badge: totalDeleted,
       adminOnly: false,
     },
     {
@@ -126,15 +138,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onTab
                   <span>{item.label}</span>
                 </div>
 
-                {item.adminOnly && (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${
-                    role === 'ADMIN' 
-                      ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50' 
-                      : 'bg-slate-800 text-slate-500 border border-slate-700'
-                  }`}>
-                    Admin
-                  </span>
-                )}
+                <div className="flex items-center space-x-1.5">
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                      {item.badge}
+                    </span>
+                  )}
+
+                  {item.adminOnly && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                      role === 'ADMIN' 
+                        ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50' 
+                        : 'bg-slate-800 text-slate-500 border border-slate-700'
+                    }`}>
+                      Admin
+                    </span>
+                  )}
+                </div>
               </button>
             );
           })}

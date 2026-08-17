@@ -10,7 +10,11 @@ import {
   Building2, 
   ChevronRight,
   UserCheck,
-  UserX
+  UserX,
+  Trash2,
+  CheckCircle,
+  X,
+  AlertTriangle
 } from 'lucide-react';
 
 interface EmployeeListViewProps {
@@ -26,12 +30,31 @@ export const EmployeeListView: React.FC<EmployeeListViewProps> = ({
   onNavigateToAddEmployee,
   initialSearchQuery = ''
 }) => {
-  const { employees, schools } = useHRIS();
+  const { employees, schools, deleteEmployee } = useHRIS();
   const { role } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState(initialSearchQuery);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'Active' | 'Inactive'>('ALL');
   const [schoolFilter, setSchoolFilter] = useState<string>('ALL');
+
+  const [confirmDeleteEmp, setConfirmDeleteEmp] = useState<{ id: string; name: string; empNum: string } | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (text: string) => {
+    setToastMessage(text);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!confirmDeleteEmp) return;
+    const res = deleteEmployee(confirmDeleteEmp.id, deleteReason);
+    setConfirmDeleteEmp(null);
+    setDeleteReason('');
+    if (res.success) {
+      showToast(res.message);
+    }
+  };
 
   const handleAddEmployee = () => {
     if (onNavigateAddEmployee) {
@@ -107,6 +130,19 @@ export const EmployeeListView: React.FC<EmployeeListViewProps> = ({
           </button>
         )}
       </div>
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="p-3.5 rounded-xl border bg-emerald-50 text-emerald-900 border-emerald-200 flex items-center justify-between text-xs font-semibold shadow-sm transition">
+          <div className="flex items-center space-x-2">
+            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+          <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-slate-600">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
@@ -259,17 +295,38 @@ export const EmployeeListView: React.FC<EmployeeListViewProps> = ({
 
                     {/* Action */}
                     <td className="py-3 px-4 text-right">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSelectEmployee(emp.id);
-                        }}
-                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-800 transition inline-flex items-center space-x-1 font-semibold text-[11px]"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>View Profile</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center justify-end space-x-1.5">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectEmployee(emp.id);
+                          }}
+                          className="p-1.5 rounded-lg bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-800 transition inline-flex items-center space-x-1 font-semibold text-[11px]"
+                          title="View Employee Profile"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>View Profile</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+
+                        {role === 'ADMIN' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteReason('');
+                              setConfirmDeleteEmp({ 
+                                id: emp.id, 
+                                name: `${emp.lastName}, ${emp.firstName}`,
+                                empNum: emp.employeeNumber
+                              });
+                            }}
+                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-400 hover:text-rose-700 transition"
+                            title="Delete Employee Record"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -278,6 +335,56 @@ export const EmployeeListView: React.FC<EmployeeListViewProps> = ({
           </div>
         )}
       </div>
+
+      {/* Delete Employee Confirmation Modal */}
+      {confirmDeleteEmp && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white text-slate-900 rounded-xl max-w-md w-full p-6 shadow-2xl border border-rose-200">
+            <div className="flex items-center space-x-3 text-rose-600 mb-3">
+              <div className="p-2.5 bg-rose-100 rounded-xl">
+                <Trash2 className="w-6 h-6 text-rose-600" />
+              </div>
+              <h3 className="font-extrabold text-base text-slate-900">
+                Move Personnel to Deleted Archive?
+              </h3>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed mb-3">
+              Are you sure you want to remove <b>{confirmDeleteEmp.name}</b> (Employee #{confirmDeleteEmp.empNum})? This record will be moved to the <b>Deleted Personnel Archive</b>, where you can restore it anytime.
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Reason for Deletion (Optional)
+              </label>
+              <input
+                type="text"
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder="e.g. Transferred outside district, resigned..."
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-rose-500"
+              />
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteEmp(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs shadow-xs"
+              >
+                Yes, Move to Deleted Archive
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

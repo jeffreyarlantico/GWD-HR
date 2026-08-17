@@ -40,12 +40,16 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
   const { 
     getEmployeeFull, 
     updateEmployee,
+    deleteEmployee,
     updatePromotion,
     deletePromotion, 
     deleteSchoolAssignment, 
     deleteLeaveRecord 
   } = useHRIS();
   const { role } = useAuth();
+
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
 
   const empFull = getEmployeeFull(employeeId);
 
@@ -175,14 +179,29 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
         </button>
 
         {role === 'ADMIN' && (
-          <button
-            id="btn-profile-edit-employee"
-            onClick={() => (onNavigateEdit ? onNavigateEdit(empFull.id) : onEditEmployee?.(empFull.id))}
-            className="inline-flex items-center space-x-2 bg-amber-500 hover:bg-amber-600 text-slate-950 px-4 py-2 rounded-xl font-bold text-xs shadow-sm transition"
-          >
-            <Edit3 className="w-4 h-4" />
-            <span>Edit Employee Record</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              id="btn-profile-delete-employee"
+              onClick={() => {
+                setDeleteReason('');
+                setConfirmDelete(true);
+              }}
+              className="inline-flex items-center space-x-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3.5 py-2 rounded-xl font-bold text-xs shadow-2xs transition"
+              title="Move this employee record to the Deleted Personnel archive"
+            >
+              <Trash2 className="w-4 h-4 text-rose-600" />
+              <span>Delete Personnel</span>
+            </button>
+
+            <button
+              id="btn-profile-edit-employee"
+              onClick={() => (onNavigateEdit ? onNavigateEdit(empFull.id) : onEditEmployee?.(empFull.id))}
+              className="inline-flex items-center space-x-2 bg-amber-500 hover:bg-amber-600 text-slate-950 px-4 py-2 rounded-xl font-bold text-xs shadow-sm transition"
+            >
+              <Edit3 className="w-4 h-4" />
+              <span>Edit Employee Record</span>
+            </button>
+          </div>
         )}
       </div>
 
@@ -608,6 +627,60 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
           employeeId={empFull.id}
           onClose={() => setShowAddLeave(false)}
         />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white text-slate-900 rounded-xl max-w-md w-full p-6 shadow-2xl border border-rose-200">
+            <div className="flex items-center space-x-3 text-rose-600 mb-3">
+              <div className="p-2.5 bg-rose-100 rounded-xl">
+                <Trash2 className="w-6 h-6 text-rose-600" />
+              </div>
+              <h3 className="font-extrabold text-base text-slate-900">
+                Move Personnel to Deleted Archive?
+              </h3>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed mb-3">
+              Are you sure you want to remove <b>{fullName}</b> (Employee #{empFull.employeeNumber}) from the active directory? This record will be safely moved to the <b>Deleted Personnel Archive</b>, where you can review or restore it at any time.
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                Reason for Deletion (Optional)
+              </label>
+              <input
+                type="text"
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder="e.g. Transferred outside district, duplicate entry, resigned..."
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-rose-500"
+              />
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteEmployee(empFull.id, deleteReason);
+                  setConfirmDelete(false);
+                  onBack();
+                }}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs shadow-xs"
+              >
+                Yes, Move to Deleted Archive
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

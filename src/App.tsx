@@ -11,6 +11,7 @@ import { EditEmployeeView } from './components/employees/EditEmployeeView';
 import { SchoolsView } from './components/schools/SchoolsView';
 import { ServiceCreditsView } from './components/serviceCredits/ServiceCreditsView';
 import { LeaveHistoryView } from './components/leave/LeaveHistoryView';
+import { DeletedArchiveView } from './components/deleted/DeletedArchiveView';
 import { ImportDataView } from './components/import/ImportDataView';
 import { SystemInfoView } from './components/system/SystemInfoView';
 import { LoginPage } from './components/auth/LoginPage';
@@ -24,6 +25,7 @@ type TabType =
   | 'schools'
   | 'service-credits'
   | 'leave-history'
+  | 'deleted-records'
   | 'import'
   | 'system-info';
 
@@ -135,6 +137,13 @@ const MainLayout: React.FC = () => {
           {activeTab === 'service-credits' && <ServiceCreditsView />}
 
           {activeTab === 'leave-history' && <LeaveHistoryView />}
+
+          {activeTab === 'deleted-records' && (
+            <DeletedArchiveView
+              onNavigateAddEmployee={() => setActiveTab('add-employee')}
+              onNavigateAddSchool={() => setActiveTab('schools')}
+            />
+          )}
 
           {activeTab === 'import' && <ImportDataView />}
 

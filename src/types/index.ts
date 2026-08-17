@@ -156,3 +156,13 @@ export interface BirthdayUpcoming {
   daysRemaining: number;
   ageTurning: number;
 }
+
+export interface DeletedEmployee extends Employee {
+  deletedAt: string;
+  deleteReason?: string;
+}
+
+export interface DeletedSchool extends School {
+  deletedAt: string;
+  deleteReason?: string;
+}

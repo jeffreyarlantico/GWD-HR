@@ -4,11 +4,13 @@
  */
 
 import { INITIAL_EMPLOYEES, INITIAL_EARNED_CREDITS, INITIAL_LEAVE_RECORDS, INITIAL_PROMOTIONS, INITIAL_SCHOOL_ASSIGNMENTS, INITIAL_SCHOOLS, INITIAL_SPECIAL_ORDERS, INITIAL_USED_CREDITS } from '../data/initialData';
-import { Employee, LeaveRecord, PromotionRecord, School, SchoolAssignmentRecord, ServiceCreditEarned, ServiceCreditUsed, SpecialOrder } from '../types';
+import { Employee, DeletedEmployee, DeletedSchool, LeaveRecord, PromotionRecord, School, SchoolAssignmentRecord, ServiceCreditEarned, ServiceCreditUsed, SpecialOrder } from '../types';
 
 const STORAGE_KEYS = {
   EMPLOYEES: 'gw_hris_employees_v1',
+  DELETED_EMPLOYEES: 'gw_hris_deleted_employees_v1',
   SCHOOLS: 'gw_hris_schools_v1',
+  DELETED_SCHOOLS: 'gw_hris_deleted_schools_v1',
   PROMOTIONS: 'gw_hris_promotions_v1',
   SCHOOL_ASSIGNMENTS: 'gw_hris_school_assignments_v1',
   SPECIAL_ORDERS: 'gw_hris_special_orders_v1',
@@ -185,5 +187,23 @@ export class StorageService {
 
   public static saveLeaveRecords(records: LeaveRecord[]): void {
     setItem(STORAGE_KEYS.LEAVE_RECORDS, records);
+  }
+
+  // Deleted Employees (Trash / Archive)
+  public static getDeletedEmployees(): DeletedEmployee[] {
+    return getItem<DeletedEmployee[]>(STORAGE_KEYS.DELETED_EMPLOYEES, []);
+  }
+
+  public static saveDeletedEmployees(employees: DeletedEmployee[]): void {
+    setItem(STORAGE_KEYS.DELETED_EMPLOYEES, employees);
+  }
+
+  // Deleted Schools (Trash / Archive)
+  public static getDeletedSchools(): DeletedSchool[] {
+    return getItem<DeletedSchool[]>(STORAGE_KEYS.DELETED_SCHOOLS, []);
+  }
+
+  public static saveDeletedSchools(schools: DeletedSchool[]): void {
+    setItem(STORAGE_KEYS.DELETED_SCHOOLS, schools);
   }
 }

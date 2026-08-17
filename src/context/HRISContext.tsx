@@ -1,14 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { StorageService } from '../services/storageService';
 import { 
-  Employee, EmployeeFull, School, SpecialOrder, ServiceCreditEarned, 
+  Employee, EmployeeFull, DeletedEmployee, School, DeletedSchool, SpecialOrder, ServiceCreditEarned, 
   ServiceCreditUsed, PromotionRecord, SchoolAssignmentRecord, LeaveRecord,
   BirthdayUpcoming
 } from '../types';
 
 interface HRISContextType {
   employees: Employee[];
+  deletedEmployees: DeletedEmployee[];
   schools: School[];
+  deletedSchools: DeletedSchool[];
   specialOrders: SpecialOrder[];
   earnedCredits: ServiceCreditEarned[];
   usedCredits: ServiceCreditUsed[];
@@ -28,12 +30,18 @@ interface HRISContextType {
   // Actions - Employees
   addEmployee: (employeeData: Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>) => { success: boolean; message: string; employee?: Employee };
   updateEmployee: (id: string, employeeData: Partial<Employee>) => { success: boolean; message: string };
+  deleteEmployee: (id: string, reason?: string) => { success: boolean; message: string };
+  restoreEmployee: (id: string) => { success: boolean; message: string };
+  permanentlyDeleteEmployee: (id: string) => { success: boolean; message: string };
   getEmployeeFull: (id: string) => EmployeeFull | null;
   getEmployeeByNumber: (empNum: string) => Employee | null;
 
   // Actions - Schools
   addSchool: (name: string) => { success: boolean; message: string };
   updateSchool: (id: string, name: string, status: 'Active' | 'Inactive') => { success: boolean; message: string };
+  deleteSchool: (id: string, reason?: string) => { success: boolean; message: string };
+  restoreSchool: (id: string) => { success: boolean; message: string };
+  permanentlyDeleteSchool: (id: string) => { success: boolean; message: string };
   
   // Actions - Promotions
   addPromotion: (promo: Omit<PromotionRecord, 'id' | 'createdAt'>) => void;
@@ -81,7 +89,9 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const [employees, setEmployees] = useState<Employee[]>(() => StorageService.getEmployees());
+  const [deletedEmployees, setDeletedEmployees] = useState<DeletedEmployee[]>(() => StorageService.getDeletedEmployees());
   const [schools, setSchools] = useState<School[]>(() => StorageService.getSchools());
+  const [deletedSchools, setDeletedSchools] = useState<DeletedSchool[]>(() => StorageService.getDeletedSchools());
   const [specialOrders, setSpecialOrders] = useState<SpecialOrder[]>(() => StorageService.getSpecialOrders());
   const [earnedCredits, setEarnedCredits] = useState<ServiceCreditEarned[]>(() => StorageService.getEarnedCredits());
   const [usedCredits, setUsedCredits] = useState<ServiceCreditUsed[]>(() => StorageService.getUsedCredits());
@@ -91,7 +101,9 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Sync to Storage
   useEffect(() => StorageService.saveEmployees(employees), [employees]);
+  useEffect(() => StorageService.saveDeletedEmployees(deletedEmployees), [deletedEmployees]);
   useEffect(() => StorageService.saveSchools(schools), [schools]);
+  useEffect(() => StorageService.saveDeletedSchools(deletedSchools), [deletedSchools]);
   useEffect(() => StorageService.saveSpecialOrders(specialOrders), [specialOrders]);
   useEffect(() => StorageService.saveEarnedCredits(earnedCredits), [earnedCredits]);
   useEffect(() => StorageService.saveUsedCredits(usedCredits), [usedCredits]);
@@ -265,6 +277,70 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: true, message: 'Employee updated successfully.' };
   };
 
+  const deleteEmployee = (id: string, reason?: string) => {
+    const target = employees.find(e => e.id === id);
+    if (!target) return { success: false, message: 'Employee record not found.' };
+
+    const deletedRecord: DeletedEmployee = {
+      ...target,
+      deletedAt: new Date().toISOString(),
+      deleteReason: reason || 'Deleted by Administrator'
+    };
+
+    setDeletedEmployees(prev => [deletedRecord, ...prev.filter(e => e.id !== id)]);
+    setEmployees(prev => prev.filter(e => e.id !== id));
+
+    return { 
+      success: true, 
+      message: `${target.firstName} ${target.lastName} was moved to the Deleted Personnel archive.` 
+    };
+  };
+
+  const restoreEmployee = (id: string) => {
+    const target = deletedEmployees.find(e => e.id === id);
+    if (!target) return { success: false, message: 'Deleted employee record not found.' };
+
+    // Check if duplicate employee number currently in active list
+    const duplicate = employees.find(e => e.employeeNumber.trim().toLowerCase() === target.employeeNumber.trim().toLowerCase());
+    if (duplicate) {
+      return { 
+        success: false, 
+        message: `Cannot restore. Employee #${target.employeeNumber} is currently assigned to active record: ${duplicate.firstName} ${duplicate.lastName}.` 
+      };
+    }
+
+    const { deletedAt, deleteReason, ...rest } = target;
+    const restoredEmp: Employee = {
+      ...rest,
+      updatedAt: new Date().toISOString()
+    };
+
+    setEmployees(prev => [...prev, restoredEmp]);
+    setDeletedEmployees(prev => prev.filter(e => e.id !== id));
+
+    return { 
+      success: true, 
+      message: `${target.firstName} ${target.lastName} has been successfully restored to Employee Records.` 
+    };
+  };
+
+  const permanentlyDeleteEmployee = (id: string) => {
+    const target = deletedEmployees.find(e => e.id === id);
+    setDeletedEmployees(prev => prev.filter(e => e.id !== id));
+    
+    // Clean up associated child records
+    setPromotions(prev => prev.filter(p => p.employeeId !== id));
+    setSchoolAssignments(prev => prev.filter(sa => sa.employeeId !== id));
+    setEarnedCredits(prev => prev.filter(ec => ec.employeeId !== id));
+    setUsedCredits(prev => prev.filter(uc => uc.employeeId !== id));
+    setLeaveRecords(prev => prev.filter(l => l.employeeId !== id));
+
+    return { 
+      success: true, 
+      message: `${target ? `${target.firstName} ${target.lastName}` : 'Employee'} has been permanently deleted from the system.` 
+    };
+  };
+
   const getEmployeeFull = (id: string): EmployeeFull | null => {
     const emp = enrichedEmployees.find(e => e.id === id);
     if (!emp) return null;
@@ -320,6 +396,62 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setEmployees(prev => prev.map(e => e.schoolId === id ? { ...e, schoolName: trimmed } : e));
 
     return { success: true, message: 'School updated successfully.' };
+  };
+
+  const deleteSchool = (id: string, reason?: string) => {
+    const target = schools.find(s => s.id === id);
+    if (!target) return { success: false, message: 'School not found.' };
+
+    const deletedRecord: DeletedSchool = {
+      ...target,
+      deletedAt: new Date().toISOString(),
+      deleteReason: reason || 'Deleted by Administrator'
+    };
+
+    setDeletedSchools(prev => [deletedRecord, ...prev.filter(s => s.id !== id)]);
+    setSchools(prev => prev.filter(s => s.id !== id));
+
+    return { 
+      success: true, 
+      message: `"${target.name}" was moved to the Deleted Schools archive.` 
+    };
+  };
+
+  const restoreSchool = (id: string) => {
+    const target = deletedSchools.find(s => s.id === id);
+    if (!target) return { success: false, message: 'Deleted school not found.' };
+
+    const duplicate = schools.find(s => s.name.trim().toLowerCase() === target.name.trim().toLowerCase());
+    if (duplicate) {
+      return { 
+        success: false, 
+        message: `Cannot restore. An active school named "${target.name}" already exists.` 
+      };
+    }
+
+    const { deletedAt, deleteReason, ...rest } = target;
+    const restoredSchool: School = {
+      ...rest,
+      updatedAt: new Date().toISOString()
+    };
+
+    setSchools(prev => [...prev, restoredSchool]);
+    setDeletedSchools(prev => prev.filter(s => s.id !== id));
+
+    return { 
+      success: true, 
+      message: `"${target.name}" has been successfully restored to Active Schools.` 
+    };
+  };
+
+  const permanentlyDeleteSchool = (id: string) => {
+    const target = deletedSchools.find(s => s.id === id);
+    setDeletedSchools(prev => prev.filter(s => s.id !== id));
+
+    return { 
+      success: true, 
+      message: `"${target ? target.name : 'School'}" has been permanently deleted from the system.` 
+    };
   };
 
   // Promotion Actions
@@ -536,8 +668,12 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // System Reset
   const resetSystemData = () => {
     StorageService.resetToDefault();
+    StorageService.saveDeletedEmployees([]);
+    StorageService.saveDeletedSchools([]);
     setEmployees(StorageService.getEmployees());
+    setDeletedEmployees([]);
     setSchools(StorageService.getSchools());
+    setDeletedSchools([]);
     setSpecialOrders(StorageService.getSpecialOrders());
     setEarnedCredits(StorageService.getEarnedCredits());
     setUsedCredits(StorageService.getUsedCredits());
@@ -605,7 +741,9 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <HRISContext.Provider
       value={{
         employees: sortedEmployeesByLastName,
+        deletedEmployees,
         schools,
+        deletedSchools,
         specialOrders,
         earnedCredits,
         usedCredits,
@@ -623,11 +761,17 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         addEmployee,
         updateEmployee,
+        deleteEmployee,
+        restoreEmployee,
+        permanentlyDeleteEmployee,
         getEmployeeFull,
         getEmployeeByNumber,
 
         addSchool,
         updateSchool,
+        deleteSchool,
+        restoreSchool,
+        permanentlyDeleteSchool,
 
         addPromotion,
         updatePromotion,
