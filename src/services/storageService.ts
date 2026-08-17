@@ -77,7 +77,12 @@ export class StorageService {
 
   // Employees
   public static getEmployees(): Employee[] {
-    return getItem<Employee[]>(STORAGE_KEYS.EMPLOYEES, []);
+    const data = getItem<Employee[] | null>(STORAGE_KEYS.EMPLOYEES, null);
+    if (!data || data.length === 0) {
+      setItem(STORAGE_KEYS.EMPLOYEES, INITIAL_EMPLOYEES);
+      return INITIAL_EMPLOYEES;
+    }
+    return data;
   }
 
   public static saveEmployees(employees: Employee[]): void {
@@ -86,7 +91,12 @@ export class StorageService {
 
   // Schools
   public static getSchools(): School[] {
-    return getItem<School[]>(STORAGE_KEYS.SCHOOLS, []);
+    const data = getItem<School[] | null>(STORAGE_KEYS.SCHOOLS, null);
+    if (!data || data.length === 0) {
+      setItem(STORAGE_KEYS.SCHOOLS, INITIAL_SCHOOLS);
+      return INITIAL_SCHOOLS;
+    }
+    return data;
   }
 
   public static saveSchools(schools: School[]): void {
@@ -95,7 +105,12 @@ export class StorageService {
 
   // Promotions
   public static getPromotions(): PromotionRecord[] {
-    return getItem<PromotionRecord[]>(STORAGE_KEYS.PROMOTIONS, []);
+    const data = getItem<PromotionRecord[] | null>(STORAGE_KEYS.PROMOTIONS, null);
+    if (!data || data.length === 0) {
+      setItem(STORAGE_KEYS.PROMOTIONS, INITIAL_PROMOTIONS);
+      return INITIAL_PROMOTIONS;
+    }
+    return data;
   }
 
   public static savePromotions(promotions: PromotionRecord[]): void {
@@ -104,7 +119,12 @@ export class StorageService {
 
   // School Assignments
   public static getSchoolAssignments(): SchoolAssignmentRecord[] {
-    return getItem<SchoolAssignmentRecord[]>(STORAGE_KEYS.SCHOOL_ASSIGNMENTS, []);
+    const data = getItem<SchoolAssignmentRecord[] | null>(STORAGE_KEYS.SCHOOL_ASSIGNMENTS, null);
+    if (!data || data.length === 0) {
+      setItem(STORAGE_KEYS.SCHOOL_ASSIGNMENTS, INITIAL_SCHOOL_ASSIGNMENTS);
+      return INITIAL_SCHOOL_ASSIGNMENTS;
+    }
+    return data;
   }
 
   public static saveSchoolAssignments(assignments: SchoolAssignmentRecord[]): void {
@@ -113,7 +133,12 @@ export class StorageService {
 
   // Special Orders
   public static getSpecialOrders(): SpecialOrder[] {
-    return getItem<SpecialOrder[]>(STORAGE_KEYS.SPECIAL_ORDERS, []);
+    const data = getItem<SpecialOrder[] | null>(STORAGE_KEYS.SPECIAL_ORDERS, null);
+    if (!data || data.length === 0) {
+      setItem(STORAGE_KEYS.SPECIAL_ORDERS, INITIAL_SPECIAL_ORDERS);
+      return INITIAL_SPECIAL_ORDERS;
+    }
+    return data;
   }
 
   public static saveSpecialOrders(specialOrders: SpecialOrder[]): void {
@@ -122,7 +147,12 @@ export class StorageService {
 
   // Earned Credits
   public static getEarnedCredits(): ServiceCreditEarned[] {
-    return getItem<ServiceCreditEarned[]>(STORAGE_KEYS.EARNED_CREDITS, []);
+    const data = getItem<ServiceCreditEarned[] | null>(STORAGE_KEYS.EARNED_CREDITS, null);
+    if (!data || data.length === 0) {
+      setItem(STORAGE_KEYS.EARNED_CREDITS, INITIAL_EARNED_CREDITS);
+      return INITIAL_EARNED_CREDITS;
+    }
+    return data;
   }
 
   public static saveEarnedCredits(credits: ServiceCreditEarned[]): void {
@@ -131,7 +161,12 @@ export class StorageService {
 
   // Used Credits
   public static getUsedCredits(): ServiceCreditUsed[] {
-    return getItem<ServiceCreditUsed[]>(STORAGE_KEYS.USED_CREDITS, []);
+    const data = getItem<ServiceCreditUsed[] | null>(STORAGE_KEYS.USED_CREDITS, null);
+    if (!data || data.length === 0) {
+      setItem(STORAGE_KEYS.USED_CREDITS, INITIAL_USED_CREDITS);
+      return INITIAL_USED_CREDITS;
+    }
+    return data;
   }
 
   public static saveUsedCredits(credits: ServiceCreditUsed[]): void {
@@ -140,7 +175,12 @@ export class StorageService {
 
   // Leave Records
   public static getLeaveRecords(): LeaveRecord[] {
-    return getItem<LeaveRecord[]>(STORAGE_KEYS.LEAVE_RECORDS, []);
+    const data = getItem<LeaveRecord[] | null>(STORAGE_KEYS.LEAVE_RECORDS, null);
+    if (!data || data.length === 0) {
+      setItem(STORAGE_KEYS.LEAVE_RECORDS, INITIAL_LEAVE_RECORDS);
+      return INITIAL_LEAVE_RECORDS;
+    }
+    return data;
   }
 
   public static saveLeaveRecords(records: LeaveRecord[]): void {
