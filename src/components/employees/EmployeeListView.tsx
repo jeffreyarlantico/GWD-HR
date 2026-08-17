@@ -22,20 +22,22 @@ interface EmployeeListViewProps {
   onNavigateAddEmployee?: () => void;
   onNavigateToAddEmployee?: () => void;
   initialSearchQuery?: string;
+  initialSchoolFilter?: string;
 }
 
 export const EmployeeListView: React.FC<EmployeeListViewProps> = ({ 
   onSelectEmployee, 
   onNavigateAddEmployee,
   onNavigateToAddEmployee,
-  initialSearchQuery = ''
+  initialSearchQuery = '',
+  initialSchoolFilter = 'ALL'
 }) => {
   const { employees, schools, deleteEmployee } = useHRIS();
   const { role } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState(initialSearchQuery);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'Active' | 'Inactive'>('ALL');
-  const [schoolFilter, setSchoolFilter] = useState<string>('ALL');
+  const [schoolFilter, setSchoolFilter] = useState<string>(initialSchoolFilter);
 
   const [confirmDeleteEmp, setConfirmDeleteEmp] = useState<{ id: string; name: string; empNum: string } | null>(null);
   const [deleteReason, setDeleteReason] = useState('');

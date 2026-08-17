@@ -13,8 +13,10 @@ import {
   ExternalLink,
   ChevronRight,
   UserCheck,
-  Trash2
+  Trash2,
+  Eye
 } from 'lucide-react';
+import { SchoolPersonnelModal } from '../schools/SchoolPersonnelModal';
 
 interface DashboardViewProps {
   setActiveTab?: (tab: string) => void;
@@ -22,7 +24,11 @@ interface DashboardViewProps {
   onNavigateToAddEmployee?: () => void;
 }
 
-export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab, onSelectEmployee }) => {
+export const DashboardView: React.FC<DashboardViewProps> = ({ 
+  setActiveTab, 
+  onSelectEmployee,
+  onNavigateToAddEmployee 
+}) => {
   const { 
     totalActiveEmployees, 
     totalInactiveEmployees, 
@@ -39,6 +45,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab, onSe
   const totalDeleted = (deletedEmployees?.length || 0) + (deletedSchools?.length || 0);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSchoolForPersonnel, setSelectedSchoolForPersonnel] = useState<string | null>(null);
 
   // Filtered search results for dashboard inline search
   const filteredSearch = searchTerm.trim() 
@@ -257,15 +264,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab, onSe
             {employeesPerSchool.map((item, idx) => (
               <div 
                 key={idx}
-                className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between hover:bg-slate-100 transition"
+                onClick={() => setSelectedSchoolForPersonnel(item.schoolName)}
+                className="p-3 bg-slate-50 hover:bg-amber-50/70 rounded-lg border border-slate-200 hover:border-amber-400 hover:ring-1 hover:ring-amber-400/40 flex items-center justify-between cursor-pointer transition group"
+                title={`Click to view personnel at ${item.schoolName}`}
               >
                 <div className="flex items-center space-x-2.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500 flex-shrink-0" />
-                  <span className="text-xs font-semibold text-slate-800 line-clamp-1">{item.schoolName}</span>
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500 group-hover:scale-125 flex-shrink-0 transition" />
+                  <span className="text-xs font-semibold text-slate-800 group-hover:text-amber-900 line-clamp-1 transition">
+                    {item.schoolName}
+                  </span>
                 </div>
-                <span className="text-xs font-extrabold bg-white text-slate-900 px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
-                  {item.count} {item.count === 1 ? 'person' : 'personnel'}
-                </span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs font-extrabold bg-white text-slate-900 group-hover:bg-amber-100 group-hover:text-amber-950 px-2.5 py-1 rounded-md border border-slate-200 group-hover:border-amber-300 shadow-2xs transition">
+                    {item.count} {item.count === 1 ? 'person' : 'personnel'}
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-700 transition" />
+                </div>
               </div>
             ))}
           </div>
@@ -410,6 +424,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab, onSe
         </div>
 
       </div>
+
+      {/* School Personnel Modal */}
+      {selectedSchoolForPersonnel && (
+        <SchoolPersonnelModal
+          schoolName={selectedSchoolForPersonnel}
+          isOpen={Boolean(selectedSchoolForPersonnel)}
+          onClose={() => setSelectedSchoolForPersonnel(null)}
+          onSelectEmployee={onSelectEmployee}
+          onNavigateAddEmployee={onNavigateToAddEmployee}
+        />
+      )}
 
     </div>
   );

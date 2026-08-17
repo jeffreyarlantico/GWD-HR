@@ -132,7 +132,12 @@ const MainLayout: React.FC = () => {
             />
           )}
 
-          {activeTab === 'schools' && <SchoolsView />}
+          {activeTab === 'schools' && (
+            <SchoolsView
+              onSelectEmployee={handleSelectEmployee}
+              onNavigateAddEmployee={() => setActiveTab('add-employee')}
+            />
+          )}
 
           {activeTab === 'service-credits' && <ServiceCreditsView />}
 
