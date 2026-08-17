@@ -18,13 +18,16 @@ import {
   Clock,
   ShieldAlert,
   Trash2,
-  Upload
+  Upload,
+  Eye,
+  Info
 } from 'lucide-react';
 import { PromotionModal } from '../promotions/PromotionModal';
 import { SchoolAssignmentModal } from '../assignments/SchoolAssignmentModal';
 import { LeaveRecordModal } from '../leave/LeaveRecordModal';
 import { ConfirmDeleteLeaveModal } from '../leave/ConfirmDeleteLeaveModal';
-import { LeaveRecord } from '../../types';
+import { LeaveRecord, SpecialOrder } from '../../types';
+import { SpecialOrderDetailsModal } from '../serviceCredits/SpecialOrderDetailsModal';
 
 interface EmployeeProfileViewProps {
   employeeId: string;
@@ -46,13 +49,19 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
     updatePromotion,
     deletePromotion, 
     deleteSchoolAssignment, 
-    deleteLeaveRecord 
+    deleteLeaveRecord,
+    specialOrders,
+    earnedCredits,
+    usedCredits,
+    employees,
+    schools
   } = useHRIS();
   const { role } = useAuth();
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteReason, setDeleteReason] = useState('');
   const [leaveToDelete, setLeaveToDelete] = useState<LeaveRecord | null>(null);
+  const [selectedSOForDetails, setSelectedSOForDetails] = useState<SpecialOrder | null>(null);
 
   const empFull = getEmployeeFull(employeeId);
 
@@ -373,6 +382,92 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
             <p className="text-[11px] text-amber-700 mt-0.5">Total Earned − Total Used</p>
           </div>
         </div>
+
+        {/* Special Orders Credited to this Teacher */}
+        {empFull.earnedCreditsList && empFull.earnedCreditsList.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5 text-amber-600" />
+              <span>Assigned Special Orders Breakdown (Click title to view full details)</span>
+            </h3>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                  <tr>
+                    <th className="py-2 px-3">SO Number</th>
+                    <th className="py-2 px-3">Special Order Title</th>
+                    <th className="py-2 px-3 text-right">Earned</th>
+                    <th className="py-2 px-3 text-right">Used</th>
+                    <th className="py-2 px-3 text-right">Available</th>
+                    <th className="py-2 px-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {empFull.earnedCreditsList.map(ec => {
+                    const so = specialOrders.find(s => s.id === ec.soId || s.soNumber === ec.soNumber);
+                    const empUsedForSO = (empFull.usedCreditsList || [])
+                      .filter(uc => uc.soId === ec.soId || (so && uc.soId === so.id) || uc.soNumber === ec.soNumber)
+                      .reduce((sum, u) => sum + (u.usedCredits || 0), 0);
+                    const availableForSO = Math.max(0, (ec.earnedCredits || 0) - empUsedForSO);
+
+                    return (
+                      <tr key={ec.id} className="hover:bg-slate-50">
+                        <td className="py-2.5 px-3 font-mono font-bold text-amber-800">
+                          {so ? (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSOForDetails(so)}
+                              className="hover:underline cursor-pointer bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200"
+                            >
+                              {ec.soNumber}
+                            </button>
+                          ) : (
+                            ec.soNumber
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          {so ? (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSOForDetails(so)}
+                              className="font-bold text-slate-900 hover:text-amber-700 hover:underline transition text-left cursor-pointer inline-flex items-center gap-1 group"
+                              title="Click to view Special Order details"
+                            >
+                              <span>{so.title}</span>
+                              <Eye className="w-3 h-3 text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </button>
+                          ) : (
+                            <span className="text-slate-600">{ec.remarks || 'Special Order'}</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-extrabold text-emerald-700">+{ec.earnedCredits.toFixed(1)}d</td>
+                        <td className="py-2.5 px-3 text-right font-bold text-rose-700">-{empUsedForSO.toFixed(1)}d</td>
+                        <td className="py-2.5 px-3 text-right font-extrabold text-amber-800">
+                          <span className={`px-2 py-0.5 rounded text-[11px] ${availableForSO > 0 ? 'bg-amber-50 text-amber-800 font-bold border border-amber-200' : 'text-slate-400'}`}>
+                            {availableForSO.toFixed(1)}d
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          {so && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSOForDetails(so)}
+                              className="px-2 py-1 bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900 rounded font-semibold text-[11px] inline-flex items-center gap-1 transition"
+                            >
+                              <Eye className="w-3 h-3 text-amber-600" />
+                              <span>View SO</span>
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 4. PROMOTION HISTORY TABLE */}
@@ -711,6 +806,18 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Special Order Details Modal */}
+      <SpecialOrderDetailsModal
+        isOpen={Boolean(selectedSOForDetails)}
+        onClose={() => setSelectedSOForDetails(null)}
+        specialOrder={selectedSOForDetails}
+        employees={employees}
+        schools={schools}
+        earnedCredits={earnedCredits}
+        usedCredits={usedCredits}
+        role={role}
+      />
 
     </div>
   );

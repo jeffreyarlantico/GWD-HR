@@ -14,10 +14,13 @@ import {
   Users,
   Search,
   MinusCircle,
-  Filter
+  Filter,
+  Eye,
+  Info
 } from 'lucide-react';
 import { SpecialOrder } from '../../types';
 import { ConfirmDeleteSpecialOrderModal } from './ConfirmDeleteSpecialOrderModal';
+import { SpecialOrderDetailsModal } from './SpecialOrderDetailsModal';
 
 export const ServiceCreditsView: React.FC = () => {
   const { 
@@ -42,6 +45,7 @@ export const ServiceCreditsView: React.FC = () => {
   // Modal states
   const [showAddSOModal, setShowAddSOModal] = useState(false);
   const [showDeductModal, setShowDeductModal] = useState(false);
+  const [selectedSOForDetails, setSelectedSOForDetails] = useState<SpecialOrder | null>(null);
 
   // Deletion Modal state for Special Orders
   const [soToDelete, setSoToDelete] = useState<{
@@ -380,29 +384,62 @@ export const ServiceCreditsView: React.FC = () => {
                 .filter(ec => ec.soId === so.id)
                 .reduce((sum, item) => sum + (item.earnedCredits || 0), 0);
 
+              const totalUsed = usedCredits
+                .filter(uc => uc.soId === so.id)
+                .reduce((sum, item) => sum + (item.usedCredits || 0), 0);
+
+              const availableForSO = Math.max(0, totalGranted - totalUsed);
               const recipientCount = earnedCredits.filter(ec => ec.soId === so.id).length;
 
               return (
-                <div key={so.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="font-mono font-extrabold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded border border-amber-200 text-xs">
-                        {so.soNumber}
-                      </span>
-                      <h3 className="font-bold text-slate-900 text-sm mt-2">{so.title}</h3>
+                <div key={so.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3 hover:border-amber-300 transition group/card">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSOForDetails(so)}
+                        className="inline-flex items-center gap-1.5 font-mono font-extrabold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2.5 py-0.5 rounded border border-amber-200 text-xs transition cursor-pointer"
+                        title="Click to view Special Order Service Credits Details"
+                      >
+                        <Award className="w-3.5 h-3.5 text-amber-600" />
+                        <span>{so.soNumber}</span>
+                      </button>
+
+                      {/* Clickable Special Order Title */}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSOForDetails(so)}
+                        className="text-left font-bold text-slate-900 text-sm mt-2 hover:text-amber-600 focus:text-amber-700 transition flex items-center group gap-1 cursor-pointer w-full"
+                        title="Click to view full Service Credits breakdown & recipient list"
+                      >
+                        <span className="group-hover:underline underline-offset-2 leading-snug">{so.title}</span>
+                        <Eye className="w-3.5 h-3.5 text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1" />
+                      </button>
+
                       <p className="text-[11px] text-slate-400 mt-0.5">Date Issued: {so.soDate}</p>
                     </div>
 
-                    <div className="flex items-center space-x-1.5">
+                    <div className="flex items-center space-x-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSOForDetails(so)}
+                        className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-lg transition text-xs font-bold flex items-center space-x-1 shadow-2xs"
+                        title="Inspect Service Credits Details"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-amber-600" />
+                        <span className="hidden sm:inline">Details</span>
+                      </button>
+
                       {so.soDocumentUrl && (
                         <a
                           href={so.soDocumentUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition text-xs font-bold flex items-center space-x-1"
+                          title="Open attached Special Order document in OneDrive"
                         >
                           <FileText className="w-3.5 h-3.5" />
-                          <span>SO Doc</span>
+                          <span className="hidden sm:inline">SO Doc</span>
                           <ExternalLink className="w-3 h-3" />
                         </a>
                       )}
@@ -423,15 +460,28 @@ export const ServiceCreditsView: React.FC = () => {
                           title="Delete Special Order"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
-                          <span>Delete</span>
+                          <span className="hidden sm:inline">Delete</span>
                         </button>
                       )}
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Recipients: <b className="text-slate-900 font-bold">{recipientCount} teachers</b></span>
-                    <span className="text-emerald-700 font-extrabold">Total Granted: {totalGranted.toFixed(1)} days</span>
+                  <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSOForDetails(so)}
+                      className="text-slate-500 hover:text-slate-900 text-left transition cursor-pointer inline-flex items-center gap-1 font-medium"
+                    >
+                      <Users className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Recipients: <b className="text-slate-900 font-bold underline decoration-dotted">{recipientCount} teachers</b></span>
+                    </button>
+
+                    <div className="flex items-center gap-3">
+                      <span className="text-emerald-700 font-extrabold">Granted: +{totalGranted.toFixed(1)}d</span>
+                      <span className="text-amber-800 font-extrabold bg-amber-50 px-2 py-0.5 rounded border border-amber-200 text-[11px]">
+                        Available: {availableForSO.toFixed(1)}d
+                      </span>
+                    </div>
                   </div>
                 </div>
               );
@@ -486,12 +536,28 @@ export const ServiceCreditsView: React.FC = () => {
                 ) : (
                   filteredEarnedCredits.map(ec => {
                     const emp = employees.find(e => e.id === ec.employeeId);
+                    const matchingSO = specialOrders.find(s => s.id === ec.soId || s.soNumber === ec.soNumber);
+
                     return (
                       <tr key={ec.id} className="hover:bg-slate-50">
                         <td className="py-2.5 px-3 font-bold text-slate-900">
                           {emp ? `${emp.lastName}, ${emp.firstName}` : ec.employeeId}
                         </td>
-                        <td className="py-2.5 px-3 font-mono font-semibold text-amber-800">{ec.soNumber}</td>
+                        <td className="py-2.5 px-3">
+                          {matchingSO ? (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSOForDetails(matchingSO)}
+                              className="font-mono font-semibold text-amber-800 hover:text-amber-950 hover:underline inline-flex items-center gap-1 cursor-pointer bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 text-[11px]"
+                              title="Click to view Special Order details"
+                            >
+                              <span>{ec.soNumber}</span>
+                              <Eye className="w-2.5 h-2.5 text-amber-600" />
+                            </button>
+                          ) : (
+                            <span className="font-mono font-semibold text-amber-800">{ec.soNumber}</span>
+                          )}
+                        </td>
                         <td className="py-2.5 px-3 font-extrabold text-emerald-700">+{ec.earnedCredits.toFixed(1)} days</td>
                         <td className="py-2.5 px-3 text-slate-600">{ec.remarks || '—'}</td>
                         {role === 'ADMIN' && (
@@ -561,12 +627,28 @@ export const ServiceCreditsView: React.FC = () => {
                 ) : (
                   filteredUsedCredits.map(uc => {
                     const emp = employees.find(e => e.id === uc.employeeId);
+                    const matchingSO = specialOrders.find(s => s.id === uc.soId || s.soNumber === uc.soNumber);
+
                     return (
                       <tr key={uc.id} className="hover:bg-slate-50">
                         <td className="py-2.5 px-3 font-bold text-slate-900">
                           {emp ? `${emp.lastName}, ${emp.firstName}` : uc.employeeId}
                         </td>
-                        <td className="py-2.5 px-3 font-mono font-semibold text-rose-800">{uc.soNumber}</td>
+                        <td className="py-2.5 px-3">
+                          {matchingSO ? (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSOForDetails(matchingSO)}
+                              className="font-mono font-semibold text-rose-800 hover:text-rose-950 hover:underline inline-flex items-center gap-1 cursor-pointer bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 text-[11px]"
+                              title="Click to view Special Order details"
+                            >
+                              <span>{uc.soNumber}</span>
+                              <Eye className="w-2.5 h-2.5 text-rose-600" />
+                            </button>
+                          ) : (
+                            <span className="font-mono font-semibold text-rose-800">{uc.soNumber}</span>
+                          )}
+                        </td>
                         <td className="py-2.5 px-3 font-semibold text-slate-800">{uc.dateUsed}</td>
                         <td className="py-2.5 px-3 font-extrabold text-rose-700">-{uc.usedCredits.toFixed(1)} days</td>
                         <td className="py-2.5 px-3 text-slate-600">{uc.remarks || '—'}</td>
@@ -1014,6 +1096,31 @@ export const ServiceCreditsView: React.FC = () => {
         onClose={() => setSoToDelete(null)}
         onConfirm={handleConfirmDeleteSO}
         specialOrder={soToDelete}
+      />
+
+      {/* Special Order Details & Service Credits Breakdown Modal */}
+      <SpecialOrderDetailsModal
+        isOpen={Boolean(selectedSOForDetails)}
+        onClose={() => setSelectedSOForDetails(null)}
+        specialOrder={selectedSOForDetails}
+        employees={employees}
+        schools={schools}
+        earnedCredits={earnedCredits}
+        usedCredits={usedCredits}
+        role={role}
+        onRecordDeductionForEmployee={(empId, soId) => {
+          setDeductEmpId(empId);
+          setDeductSoId(soId);
+          setDeductError('');
+          setDeductSuccess('');
+          setShowDeductModal(true);
+        }}
+        onDeleteEarnedCredit={(creditId) => {
+          deleteEarnedCredit(creditId);
+        }}
+        onDeleteUsedCredit={(creditId) => {
+          deleteUsedCredit(creditId);
+        }}
       />
 
     </div>
