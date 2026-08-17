@@ -213,11 +213,17 @@ export const LoginPage: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="pb-6 text-center text-[11px] text-slate-500 z-10 px-4">
-        <p>
+      <footer className="pb-6 text-center text-[11px] text-slate-400 z-10 px-4 space-y-2">
+        <div className="inline-flex items-center justify-center flex-wrap gap-1.5 bg-slate-900/90 border border-slate-800/90 px-3.5 py-1.5 rounded-full text-xs shadow-md backdrop-blur-md">
+          <span className="text-slate-500 font-normal">System Creator:</span>
+          <span className="font-bold text-amber-400">Jeffrey P. Arlantico</span>
+          <span className="text-slate-600">•</span>
+          <span className="text-slate-300 font-medium">Administrative Officer II</span>
+        </div>
+        <p className="text-slate-500 text-[11px]">
           Guimba West District HR Information System (HRIS) • Department of Education, Division of Nueva Ecija
         </p>
-        <p className="text-slate-600 mt-0.5">
+        <p className="text-slate-600 text-[10px]">
           Restricted System for Authorized District Personnel and School Heads
         </p>
       </footer>
