@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useHRIS } from '../../context/HRISContext';
 import { useAuth } from '../../context/AuthContext';
-import { CalendarOff, FileText, ExternalLink, Plus, Search, Trash2 } from 'lucide-react';
+import { CalendarOff, FileText, ExternalLink, Plus, Search, Trash2, CheckCircle, AlertTriangle } from 'lucide-react';
 import { LeaveRecordModal } from './LeaveRecordModal';
+import { ConfirmDeleteLeaveModal } from './ConfirmDeleteLeaveModal';
+import { LeaveRecord } from '../../types';
 
 export const LeaveHistoryView: React.FC = () => {
   const { leaveRecords, employees, deleteLeaveRecord } = useHRIS();
@@ -10,6 +12,23 @@ export const LeaveHistoryView: React.FC = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState<{
+    id: string;
+    leaveType: string;
+    dateFrom: string;
+    dateTo: string;
+    numberOfDays: number;
+    remarks?: string;
+    employeeName?: string;
+    schoolName?: string;
+  } | null>(null);
+
+  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const showToast = (type: 'success' | 'error', text: string) => {
+    setToastMessage({ type, text });
+    setTimeout(() => setToastMessage(null), 4500);
+  };
 
   const handleOpenDoc = (url: string) => {
     if (!url) return;
@@ -35,6 +54,31 @@ export const LeaveHistoryView: React.FC = () => {
     }
   };
 
+  const handleInitiateDelete = (lvr: LeaveRecord) => {
+    const emp = employees.find(e => e.id === lvr.employeeId);
+    setRecordToDelete({
+      id: lvr.id,
+      leaveType: lvr.leaveType,
+      dateFrom: lvr.dateFrom,
+      dateTo: lvr.dateTo,
+      numberOfDays: lvr.numberOfDays,
+      remarks: lvr.remarks,
+      employeeName: emp ? `${emp.lastName}, ${emp.firstName}` : lvr.employeeId,
+      schoolName: emp?.schoolName || ''
+    });
+  };
+
+  const handleConfirmDelete = (reason: string) => {
+    if (!recordToDelete) return;
+    const res = deleteLeaveRecord(recordToDelete.id, reason);
+    setRecordToDelete(null);
+    if (res.success) {
+      showToast('success', res.message);
+    } else {
+      showToast('error', res.message);
+    }
+  };
+
   const filteredLeaves = leaveRecords.filter(lvr => {
     const emp = employees.find(e => e.id === lvr.employeeId);
     const name = emp ? `${emp.lastName}, ${emp.firstName}`.toLowerCase() : '';
@@ -49,6 +93,32 @@ export const LeaveHistoryView: React.FC = () => {
   return (
     <div id="leave-history-module" className="space-y-6 pb-16">
       
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div
+          className={`p-4 rounded-xl border flex items-center justify-between text-xs font-semibold shadow-sm transition ${
+            toastMessage.type === 'success'
+              ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+              : 'bg-rose-50 text-rose-900 border-rose-200'
+          }`}
+        >
+          <div className="flex items-center space-x-2">
+            {toastMessage.type === 'success' ? (
+              <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+            )}
+            <span>{toastMessage.text}</span>
+          </div>
+          <button
+            onClick={() => setToastMessage(null)}
+            className="text-slate-400 hover:text-slate-600 ml-4 font-bold"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
         <div>
@@ -142,8 +212,8 @@ export const LeaveHistoryView: React.FC = () => {
                       {role === 'ADMIN' && (
                         <td className="py-2.5 px-3 text-right">
                           <button
-                            onClick={() => deleteLeaveRecord(lvr.id)}
-                            className="text-rose-600 hover:text-rose-800 p-1 rounded hover:bg-rose-50"
+                            onClick={() => handleInitiateDelete(lvr)}
+                            className="text-rose-600 hover:text-rose-800 p-1.5 rounded-lg hover:bg-rose-50 transition"
                             title="Delete leave record"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -166,6 +236,15 @@ export const LeaveHistoryView: React.FC = () => {
         />
       )}
 
+      {/* Confirm Delete Leave Modal */}
+      <ConfirmDeleteLeaveModal
+        isOpen={Boolean(recordToDelete)}
+        onClose={() => setRecordToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        leaveRecord={recordToDelete}
+      />
+
     </div>
   );
 };
+

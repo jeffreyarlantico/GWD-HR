@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { StorageService } from '../services/storageService';
 import { 
-  Employee, EmployeeFull, DeletedEmployee, School, DeletedSchool, SpecialOrder, ServiceCreditEarned, 
+  Employee, EmployeeFull, DeletedEmployee, School, DeletedSchool, DeletedLeaveRecord, DeletedSpecialOrder, SpecialOrder, ServiceCreditEarned, 
   ServiceCreditUsed, PromotionRecord, SchoolAssignmentRecord, LeaveRecord,
   BirthdayUpcoming
 } from '../types';
@@ -11,7 +11,9 @@ interface HRISContextType {
   deletedEmployees: DeletedEmployee[];
   schools: School[];
   deletedSchools: DeletedSchool[];
+  deletedLeaveRecords: DeletedLeaveRecord[];
   specialOrders: SpecialOrder[];
+  deletedSpecialOrders: DeletedSpecialOrder[];
   earnedCredits: ServiceCreditEarned[];
   usedCredits: ServiceCreditUsed[];
   promotions: PromotionRecord[];
@@ -56,6 +58,9 @@ interface HRISContextType {
   // Actions - Special Orders & Service Credits
   addSpecialOrder: (so: Omit<SpecialOrder, 'id' | 'createdAt' | 'updatedAt'>) => SpecialOrder;
   updateSpecialOrder: (id: string, so: Partial<SpecialOrder>) => void;
+  deleteSpecialOrder: (id: string, reason?: string) => { success: boolean; message: string };
+  restoreSpecialOrder: (id: string) => { success: boolean; message: string };
+  permanentlyDeleteSpecialOrder: (id: string) => { success: boolean; message: string };
   addEarnedCredit: (earned: Omit<ServiceCreditEarned, 'id' | 'createdAt'>) => void;
   addEarnedCreditsBatch: (soId: string, soNumber: string, assignments: { employeeId: string; earnedCredits: number; remarks?: string }[]) => void;
   updateEarnedCredit: (id: string, earnedCredits: number, remarks?: string) => void;
@@ -73,7 +78,9 @@ interface HRISContextType {
   // Actions - Leave
   addLeaveRecord: (leave: Omit<LeaveRecord, 'id' | 'createdAt'>) => void;
   updateLeaveRecord: (id: string, leave: Partial<LeaveRecord>) => void;
-  deleteLeaveRecord: (id: string) => void;
+  deleteLeaveRecord: (id: string, reason?: string) => { success: boolean; message: string };
+  restoreLeaveRecord: (id: string) => { success: boolean; message: string };
+  permanentlyDeleteLeaveRecord: (id: string) => { success: boolean; message: string };
 
   // System
   resetSystemData: () => void;
@@ -93,11 +100,13 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [schools, setSchools] = useState<School[]>(() => StorageService.getSchools());
   const [deletedSchools, setDeletedSchools] = useState<DeletedSchool[]>(() => StorageService.getDeletedSchools());
   const [specialOrders, setSpecialOrders] = useState<SpecialOrder[]>(() => StorageService.getSpecialOrders());
+  const [deletedSpecialOrders, setDeletedSpecialOrders] = useState<DeletedSpecialOrder[]>(() => StorageService.getDeletedSpecialOrders());
   const [earnedCredits, setEarnedCredits] = useState<ServiceCreditEarned[]>(() => StorageService.getEarnedCredits());
   const [usedCredits, setUsedCredits] = useState<ServiceCreditUsed[]>(() => StorageService.getUsedCredits());
   const [promotions, setPromotions] = useState<PromotionRecord[]>(() => StorageService.getPromotions());
   const [schoolAssignments, setSchoolAssignments] = useState<SchoolAssignmentRecord[]>(() => StorageService.getSchoolAssignments());
   const [leaveRecords, setLeaveRecords] = useState<LeaveRecord[]>(() => StorageService.getLeaveRecords());
+  const [deletedLeaveRecords, setDeletedLeaveRecords] = useState<DeletedLeaveRecord[]>(() => StorageService.getDeletedLeaveRecords());
 
   // Sync to Storage
   useEffect(() => StorageService.saveEmployees(employees), [employees]);
@@ -105,11 +114,13 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => StorageService.saveSchools(schools), [schools]);
   useEffect(() => StorageService.saveDeletedSchools(deletedSchools), [deletedSchools]);
   useEffect(() => StorageService.saveSpecialOrders(specialOrders), [specialOrders]);
+  useEffect(() => StorageService.saveDeletedSpecialOrders(deletedSpecialOrders), [deletedSpecialOrders]);
   useEffect(() => StorageService.saveEarnedCredits(earnedCredits), [earnedCredits]);
   useEffect(() => StorageService.saveUsedCredits(usedCredits), [usedCredits]);
   useEffect(() => StorageService.savePromotions(promotions), [promotions]);
   useEffect(() => StorageService.saveSchoolAssignments(schoolAssignments), [schoolAssignments]);
   useEffect(() => StorageService.saveLeaveRecords(leaveRecords), [leaveRecords]);
+  useEffect(() => StorageService.saveDeletedLeaveRecords(deletedLeaveRecords), [deletedLeaveRecords]);
 
   // Dynamic enrichment of employees based on latest promotion appointment date
   const enrichedEmployees = useMemo(() => {
@@ -553,6 +564,59 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSpecialOrders(prev => prev.map(so => so.id === id ? { ...so, ...soData, updatedAt: now } : so));
   };
 
+  const deleteSpecialOrder = (id: string, reason?: string) => {
+    const target = specialOrders.find(so => so.id === id);
+    if (!target) return { success: false, message: 'Special Order not found.' };
+
+    const totalGranted = earnedCredits
+      .filter(ec => ec.soId === id)
+      .reduce((sum, item) => sum + (item.earnedCredits || 0), 0);
+
+    const recipientCount = earnedCredits.filter(ec => ec.soId === id).length;
+
+    const deletedSO: DeletedSpecialOrder = {
+      ...target,
+      deletedAt: new Date().toISOString(),
+      deleteReason: reason || 'Deleted by Administrator',
+      totalRecipients: recipientCount,
+      totalGrantedCredits: totalGranted
+    };
+
+    setDeletedSpecialOrders(prev => [deletedSO, ...prev.filter(so => so.id !== id)]);
+    setSpecialOrders(prev => prev.filter(so => so.id !== id));
+
+    return {
+      success: true,
+      message: `Special Order ${target.soNumber} ("${target.title}") was moved to Deleted Records.`
+    };
+  };
+
+  const restoreSpecialOrder = (id: string) => {
+    const target = deletedSpecialOrders.find(so => so.id === id);
+    if (!target) return { success: false, message: 'Deleted Special Order not found.' };
+
+    const { deletedAt, deleteReason, totalRecipients, totalGrantedCredits, ...rest } = target;
+    const restoredSO: SpecialOrder = {
+      ...rest
+    };
+
+    setSpecialOrders(prev => [...prev, restoredSO]);
+    setDeletedSpecialOrders(prev => prev.filter(so => so.id !== id));
+
+    return {
+      success: true,
+      message: `Special Order ${target.soNumber} was restored successfully.`
+    };
+  };
+
+  const permanentlyDeleteSpecialOrder = (id: string) => {
+    setDeletedSpecialOrders(prev => prev.filter(so => so.id !== id));
+    return {
+      success: true,
+      message: 'Special Order permanently erased from the system.'
+    };
+  };
+
   const addEarnedCredit = (earned: Omit<ServiceCreditEarned, 'id' | 'createdAt'>) => {
     const newCredit: ServiceCreditEarned = {
       ...earned,
@@ -661,8 +725,57 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLeaveRecords(prev => prev.map(l => l.id === id ? { ...l, ...leave } : l));
   };
 
-  const deleteLeaveRecord = (id: string) => {
+  const deleteLeaveRecord = (id: string, reason?: string) => {
+    const target = leaveRecords.find(l => l.id === id);
+    if (!target) return { success: false, message: 'Leave record not found.' };
+
+    const emp = employees.find(e => e.id === target.employeeId);
+    const empName = emp ? `${emp.lastName}, ${emp.firstName} ${emp.middleName || ''} ${emp.extensionName || ''}`.trim() : 'Unknown Employee';
+
+    const deletedRecord: DeletedLeaveRecord = {
+      ...target,
+      deletedAt: new Date().toISOString(),
+      deleteReason: reason || 'Deleted by Administrator',
+      employeeName: empName,
+      employeeNumber: emp?.employeeNumber || '',
+      schoolName: emp?.schoolName || ''
+    };
+
+    setDeletedLeaveRecords(prev => [deletedRecord, ...prev.filter(l => l.id !== id)]);
     setLeaveRecords(prev => prev.filter(l => l.id !== id));
+
+    return {
+      success: true,
+      message: `Leave record for ${empName} (${target.leaveType}, ${target.numberOfDays} days) was moved to Deleted Records.`
+    };
+  };
+
+  const restoreLeaveRecord = (id: string) => {
+    const target = deletedLeaveRecords.find(l => l.id === id);
+    if (!target) return { success: false, message: 'Deleted leave record not found.' };
+
+    const { deletedAt, deleteReason, employeeName, employeeNumber, schoolName, ...rest } = target;
+    const restoredRecord: LeaveRecord = {
+      ...rest
+    };
+
+    setLeaveRecords(prev => [...prev, restoredRecord]);
+    setDeletedLeaveRecords(prev => prev.filter(l => l.id !== id));
+
+    return {
+      success: true,
+      message: `Leave record for ${employeeName || 'employee'} (${target.leaveType}) has been successfully restored.`
+    };
+  };
+
+  const permanentlyDeleteLeaveRecord = (id: string) => {
+    const target = deletedLeaveRecords.find(l => l.id === id);
+    setDeletedLeaveRecords(prev => prev.filter(l => l.id !== id));
+
+    return {
+      success: true,
+      message: `Leave record ${target ? `(${target.leaveType})` : ''} permanently purged from system archive.`
+    };
   };
 
   // System Reset
@@ -670,10 +783,14 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
     StorageService.resetToDefault();
     StorageService.saveDeletedEmployees([]);
     StorageService.saveDeletedSchools([]);
+    StorageService.saveDeletedLeaveRecords([]);
+    StorageService.saveDeletedSpecialOrders([]);
     setEmployees(StorageService.getEmployees());
     setDeletedEmployees([]);
     setSchools(StorageService.getSchools());
     setDeletedSchools([]);
+    setDeletedLeaveRecords([]);
+    setDeletedSpecialOrders([]);
     setSpecialOrders(StorageService.getSpecialOrders());
     setEarnedCredits(StorageService.getEarnedCredits());
     setUsedCredits(StorageService.getUsedCredits());
@@ -744,7 +861,9 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
         deletedEmployees,
         schools,
         deletedSchools,
+        deletedLeaveRecords,
         specialOrders,
+        deletedSpecialOrders,
         earnedCredits,
         usedCredits,
         promotions,
@@ -783,6 +902,9 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         addSpecialOrder,
         updateSpecialOrder,
+        deleteSpecialOrder,
+        restoreSpecialOrder,
+        permanentlyDeleteSpecialOrder,
         addEarnedCredit,
         addEarnedCreditsBatch,
         updateEarnedCredit,
@@ -796,6 +918,8 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addLeaveRecord,
         updateLeaveRecord,
         deleteLeaveRecord,
+        restoreLeaveRecord,
+        permanentlyDeleteLeaveRecord,
 
         resetSystemData,
         importEmployeesBatch,

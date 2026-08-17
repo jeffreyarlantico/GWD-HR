@@ -17,6 +17,7 @@ import {
   Filter
 } from 'lucide-react';
 import { SpecialOrder } from '../../types';
+import { ConfirmDeleteSpecialOrderModal } from './ConfirmDeleteSpecialOrderModal';
 
 export const ServiceCreditsView: React.FC = () => {
   const { 
@@ -26,6 +27,7 @@ export const ServiceCreditsView: React.FC = () => {
     employees, 
     schools,
     addSpecialOrder, 
+    deleteSpecialOrder,
     addEarnedCreditsBatch, 
     addUsedCredit, 
     deleteEarnedCredit,
@@ -40,6 +42,18 @@ export const ServiceCreditsView: React.FC = () => {
   // Modal states
   const [showAddSOModal, setShowAddSOModal] = useState(false);
   const [showDeductModal, setShowDeductModal] = useState(false);
+
+  // Deletion Modal state for Special Orders
+  const [soToDelete, setSoToDelete] = useState<{
+    id: string;
+    soNumber: string;
+    soDate: string;
+    title: string;
+    soDocumentUrl?: string;
+    totalRecipients?: number;
+    totalGranted?: number;
+  } | null>(null);
+  const [soNotification, setSoNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // New SO state
   const [soNumber, setSoNumber] = useState('');
@@ -255,8 +269,43 @@ export const ServiceCreditsView: React.FC = () => {
   // Available SOs for selected employee in Deduction Modal
   const availableSOsForDeductEmp = deductEmpId ? getAvailableSpecialOrdersForEmployee(deductEmpId) : [];
 
+  const handleConfirmDeleteSO = (reason: string) => {
+    if (!soToDelete) return;
+    const result = deleteSpecialOrder(soToDelete.id, reason);
+    setSoToDelete(null);
+    if (result.success) {
+      setSoNotification({ type: 'success', message: result.message });
+      setTimeout(() => setSoNotification(null), 4500);
+    } else {
+      setSoNotification({ type: 'error', message: result.message });
+    }
+  };
+
   return (
     <div id="service-credits-module" className="space-y-6 pb-16">
+      {/* Action Notification Toast/Banner */}
+      {soNotification && (
+        <div className={`p-4 rounded-xl border flex items-center justify-between shadow-sm animate-fade-in ${
+          soNotification.type === 'success' 
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
+            : 'bg-rose-50 border-rose-200 text-rose-900'
+        }`}>
+          <div className="flex items-center space-x-2.5">
+            {soNotification.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
+            )}
+            <p className="text-xs font-bold">{soNotification.message}</p>
+          </div>
+          <button
+            onClick={() => setSoNotification(null)}
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 transition"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
       
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
@@ -344,18 +393,40 @@ export const ServiceCreditsView: React.FC = () => {
                       <p className="text-[11px] text-slate-400 mt-0.5">Date Issued: {so.soDate}</p>
                     </div>
 
-                    {so.soDocumentUrl && (
-                      <a
-                        href={so.soDocumentUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition text-xs font-bold flex items-center space-x-1"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        <span>SO Doc</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
+                    <div className="flex items-center space-x-1.5">
+                      {so.soDocumentUrl && (
+                        <a
+                          href={so.soDocumentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition text-xs font-bold flex items-center space-x-1"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>SO Doc</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+
+                      {role === 'ADMIN' && (
+                        <button
+                          type="button"
+                          onClick={() => setSoToDelete({
+                            id: so.id,
+                            soNumber: so.soNumber,
+                            soDate: so.soDate,
+                            title: so.title,
+                            soDocumentUrl: so.soDocumentUrl,
+                            totalRecipients: recipientCount,
+                            totalGranted: totalGranted
+                          })}
+                          className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition text-xs font-bold flex items-center space-x-1"
+                          title="Delete Special Order"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
@@ -936,6 +1007,14 @@ export const ServiceCreditsView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Confirmation Modal for Special Order Deletion */}
+      <ConfirmDeleteSpecialOrderModal
+        isOpen={Boolean(soToDelete)}
+        onClose={() => setSoToDelete(null)}
+        onConfirm={handleConfirmDeleteSO}
+        specialOrder={soToDelete}
+      />
 
     </div>
   );

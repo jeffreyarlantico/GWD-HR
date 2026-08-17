@@ -166,3 +166,19 @@ export interface DeletedSchool extends School {
   deletedAt: string;
   deleteReason?: string;
 }
+
+export interface DeletedLeaveRecord extends LeaveRecord {
+  deletedAt: string;
+  deleteReason?: string;
+  employeeName?: string;
+  employeeNumber?: string;
+  schoolName?: string;
+}
+
+export interface DeletedSpecialOrder extends SpecialOrder {
+  deletedAt: string;
+  deleteReason?: string;
+  totalRecipients?: number;
+  totalGrantedCredits?: number;
+}
+

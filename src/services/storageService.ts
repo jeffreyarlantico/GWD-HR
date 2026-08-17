@@ -4,7 +4,7 @@
  */
 
 import { INITIAL_EMPLOYEES, INITIAL_EARNED_CREDITS, INITIAL_LEAVE_RECORDS, INITIAL_PROMOTIONS, INITIAL_SCHOOL_ASSIGNMENTS, INITIAL_SCHOOLS, INITIAL_SPECIAL_ORDERS, INITIAL_USED_CREDITS } from '../data/initialData';
-import { Employee, DeletedEmployee, DeletedSchool, LeaveRecord, PromotionRecord, School, SchoolAssignmentRecord, ServiceCreditEarned, ServiceCreditUsed, SpecialOrder } from '../types';
+import { Employee, DeletedEmployee, DeletedSchool, DeletedLeaveRecord, DeletedSpecialOrder, LeaveRecord, PromotionRecord, School, SchoolAssignmentRecord, ServiceCreditEarned, ServiceCreditUsed, SpecialOrder } from '../types';
 
 const STORAGE_KEYS = {
   EMPLOYEES: 'gw_hris_employees_v1',
@@ -14,9 +14,11 @@ const STORAGE_KEYS = {
   PROMOTIONS: 'gw_hris_promotions_v1',
   SCHOOL_ASSIGNMENTS: 'gw_hris_school_assignments_v1',
   SPECIAL_ORDERS: 'gw_hris_special_orders_v1',
+  DELETED_SPECIAL_ORDERS: 'gw_hris_deleted_special_orders_v1',
   EARNED_CREDITS: 'gw_hris_earned_credits_v1',
   USED_CREDITS: 'gw_hris_used_credits_v1',
   LEAVE_RECORDS: 'gw_hris_leave_records_v1',
+  DELETED_LEAVE_RECORDS: 'gw_hris_deleted_leave_records_v1',
 };
 
 function getItem<T>(key: string, defaultValue: T): T {
@@ -205,5 +207,23 @@ export class StorageService {
 
   public static saveDeletedSchools(schools: DeletedSchool[]): void {
     setItem(STORAGE_KEYS.DELETED_SCHOOLS, schools);
+  }
+
+  // Deleted Leave Records (Trash / Archive)
+  public static getDeletedLeaveRecords(): DeletedLeaveRecord[] {
+    return getItem<DeletedLeaveRecord[]>(STORAGE_KEYS.DELETED_LEAVE_RECORDS, []);
+  }
+
+  public static saveDeletedLeaveRecords(records: DeletedLeaveRecord[]): void {
+    setItem(STORAGE_KEYS.DELETED_LEAVE_RECORDS, records);
+  }
+
+  // Deleted Special Orders (Trash / Archive)
+  public static getDeletedSpecialOrders(): DeletedSpecialOrder[] {
+    return getItem<DeletedSpecialOrder[]>(STORAGE_KEYS.DELETED_SPECIAL_ORDERS, []);
+  }
+
+  public static saveDeletedSpecialOrders(orders: DeletedSpecialOrder[]): void {
+    setItem(STORAGE_KEYS.DELETED_SPECIAL_ORDERS, orders);
   }
 }

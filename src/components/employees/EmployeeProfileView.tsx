@@ -23,6 +23,8 @@ import {
 import { PromotionModal } from '../promotions/PromotionModal';
 import { SchoolAssignmentModal } from '../assignments/SchoolAssignmentModal';
 import { LeaveRecordModal } from '../leave/LeaveRecordModal';
+import { ConfirmDeleteLeaveModal } from '../leave/ConfirmDeleteLeaveModal';
+import { LeaveRecord } from '../../types';
 
 interface EmployeeProfileViewProps {
   employeeId: string;
@@ -50,6 +52,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteReason, setDeleteReason] = useState('');
+  const [leaveToDelete, setLeaveToDelete] = useState<LeaveRecord | null>(null);
 
   const empFull = getEmployeeFull(employeeId);
 
@@ -591,9 +594,9 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                     {role === 'ADMIN' && (
                       <td className="py-2.5 px-3 text-right">
                         <button
-                          onClick={() => deleteLeaveRecord(lvr.id)}
+                          onClick={() => setLeaveToDelete(lvr)}
                           className="text-rose-600 hover:text-rose-800 p-1 rounded hover:bg-rose-50"
-                          title="Delete entry"
+                          title="Delete leave entry"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -628,6 +631,32 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
           onClose={() => setShowAddLeave(false)}
         />
       )}
+
+      {/* Confirm Delete Leave Modal */}
+      <ConfirmDeleteLeaveModal
+        isOpen={Boolean(leaveToDelete)}
+        onClose={() => setLeaveToDelete(null)}
+        onConfirm={(reason) => {
+          if (leaveToDelete) {
+            deleteLeaveRecord(leaveToDelete.id, reason);
+            setLeaveToDelete(null);
+          }
+        }}
+        leaveRecord={
+          leaveToDelete
+            ? {
+                id: leaveToDelete.id,
+                leaveType: leaveToDelete.leaveType,
+                dateFrom: leaveToDelete.dateFrom,
+                dateTo: leaveToDelete.dateTo,
+                numberOfDays: leaveToDelete.numberOfDays,
+                remarks: leaveToDelete.remarks,
+                employeeName: `${empFull.lastName}, ${empFull.firstName}`,
+                schoolName: empFull.schoolName,
+              }
+            : null
+        }
+      />
 
       {/* Delete Confirmation Modal */}
       {confirmDelete && (
