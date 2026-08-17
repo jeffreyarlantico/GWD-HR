@@ -19,8 +19,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    const savedAuth = localStorage.getItem('gw_hris_is_authenticated');
-    return savedAuth !== null ? savedAuth === 'true' : true;
+    const savedAuth = sessionStorage.getItem('gw_hris_is_authenticated');
+    return savedAuth === 'true';
   });
 
   useEffect(() => {
@@ -28,7 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [role]);
 
   useEffect(() => {
-    localStorage.setItem('gw_hris_is_authenticated', String(isAuthenticated));
+    sessionStorage.setItem('gw_hris_is_authenticated', String(isAuthenticated));
   }, [isAuthenticated]);
 
   const login = (selectedRole: Role) => {
