@@ -14,7 +14,8 @@ import {
   Shield,
   Eye,
   LogOut,
-  Trash2
+  Trash2,
+  Cloud
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -64,6 +65,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onTab
       id: 'leave-history',
       label: 'Leave Records',
       icon: CalendarOff,
+      adminOnly: false,
+    },
+    {
+      id: 'google-drive',
+      label: 'Google Drive Cloud',
+      icon: Cloud,
       adminOnly: false,
     },
     {

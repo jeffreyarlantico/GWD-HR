@@ -221,11 +221,24 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
       <div className="bg-gradient-to-r from-[#0F2942] to-[#1E3A8A] text-white p-6 rounded-2xl shadow-md border border-slate-700 flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-6">
         
         {/* Photo */}
-        <div className="w-24 h-24 rounded-full bg-slate-200 border-4 border-white/20 shadow-lg overflow-hidden flex-shrink-0 flex items-center justify-center font-extrabold text-slate-700 text-xl">
-          {empFull.profilePhotoUrl ? (
-            <img src={empFull.profilePhotoUrl} alt={fullName} className="w-full h-full object-cover" />
-          ) : (
-            `${empFull.firstName[0]}${empFull.lastName[0]}`
+        <div className="relative group flex-shrink-0">
+          <div className="w-24 h-24 rounded-full bg-slate-200 border-4 border-white/20 shadow-lg overflow-hidden flex items-center justify-center font-extrabold text-slate-700 text-xl">
+            {empFull.profilePhotoUrl ? (
+              <img src={empFull.profilePhotoUrl} alt={fullName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            ) : (
+              `${empFull.firstName[0]}${empFull.lastName[0]}`
+            )}
+          </div>
+          {empFull.photoDriveFileId && (
+            <a
+              href={`https://drive.google.com/file/d/${empFull.photoDriveFileId}/view`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute -bottom-1 -right-1 bg-blue-600 hover:bg-blue-700 text-white p-1.5 rounded-full shadow border-2 border-slate-900 transition flex items-center justify-center"
+              title="View original profile photo in Google Drive"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
           )}
         </div>
 

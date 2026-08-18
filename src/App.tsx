@@ -14,6 +14,7 @@ import { LeaveHistoryView } from './components/leave/LeaveHistoryView';
 import { DeletedArchiveView } from './components/deleted/DeletedArchiveView';
 import { ImportDataView } from './components/import/ImportDataView';
 import { SystemInfoView } from './components/system/SystemInfoView';
+import { GoogleDriveView } from './components/drive/GoogleDriveView';
 import { LoginPage } from './components/auth/LoginPage';
 
 type TabType = 
@@ -25,6 +26,7 @@ type TabType =
   | 'schools'
   | 'service-credits'
   | 'leave-history'
+  | 'google-drive'
   | 'deleted-records'
   | 'import'
   | 'system-info';
@@ -142,6 +144,8 @@ const MainLayout: React.FC = () => {
           {activeTab === 'service-credits' && <ServiceCreditsView />}
 
           {activeTab === 'leave-history' && <LeaveHistoryView />}
+
+          {activeTab === 'google-drive' && <GoogleDriveView />}
 
           {activeTab === 'deleted-records' && (
             <DeletedArchiveView
