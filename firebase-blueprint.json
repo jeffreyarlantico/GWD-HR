@@ -1,0 +1,237 @@
+{
+  "entities": {
+    "School": {
+      "title": "School",
+      "description": "Public school entity in Guimba West District",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["Active", "Inactive"] },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "name", "status"]
+    },
+    "Employee": {
+      "title": "Employee",
+      "description": "DepEd teaching or non-teaching employee profile in Guimba West District",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "profilePhotoUrl": { "type": "string", "maxLength": 1000 },
+        "firstName": { "type": "string", "maxLength": 100 },
+        "middleName": { "type": "string", "maxLength": 100 },
+        "lastName": { "type": "string", "maxLength": 100 },
+        "extensionName": { "type": "string", "maxLength": 20 },
+        "birthday": { "type": "string", "maxLength": 30 },
+        "employeeNumber": { "type": "string", "maxLength": 50 },
+        "currentPosition": { "type": "string", "maxLength": 100 },
+        "itemNumber": { "type": "string", "maxLength": 100 },
+        "dateOfLatestAppointment": { "type": "string", "maxLength": 30 },
+        "dateOfOriginalAppointment": { "type": "string", "maxLength": 30 },
+        "appointmentDocumentUrl": { "type": "string", "maxLength": 1000 },
+        "schoolId": { "type": "string", "maxLength": 128 },
+        "schoolName": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["Active", "Inactive"] },
+        "tinNumber": { "type": "string", "maxLength": 50 },
+        "lbpAccountNumber": { "type": "string", "maxLength": 50 },
+        "gsisNumber": { "type": "string", "maxLength": 50 },
+        "philhealthNumber": { "type": "string", "maxLength": 50 },
+        "pagibigNumber": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "firstName", "lastName", "employeeNumber", "currentPosition", "schoolId", "schoolName", "status"]
+    },
+    "PromotionRecord": {
+      "title": "PromotionRecord",
+      "description": "Historical promotion or appointment paper item for an employee",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "employeeId": { "type": "string", "maxLength": 128 },
+        "position": { "type": "string", "maxLength": 100 },
+        "itemNumber": { "type": "string", "maxLength": 100 },
+        "appointmentDate": { "type": "string", "maxLength": 30 },
+        "appointmentPaperUrl": { "type": "string", "maxLength": 1000 },
+        "remarks": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "employeeId", "position", "itemNumber", "appointmentDate"]
+    },
+    "SchoolAssignmentRecord": {
+      "title": "SchoolAssignmentRecord",
+      "description": "Assignment or station transfer record for an employee",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "employeeId": { "type": "string", "maxLength": 128 },
+        "schoolId": { "type": "string", "maxLength": 128 },
+        "schoolName": { "type": "string", "maxLength": 200 },
+        "effectiveDateFrom": { "type": "string", "maxLength": 30 },
+        "effectiveDateTo": { "type": "string", "maxLength": 30 },
+        "remarks": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "employeeId", "schoolId", "schoolName", "effectiveDateFrom"]
+    },
+    "SpecialOrder": {
+      "title": "SpecialOrder",
+      "description": "District or Division Special Order allocating service credits",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "soNumber": { "type": "string", "maxLength": 100 },
+        "soDate": { "type": "string", "maxLength": 30 },
+        "title": { "type": "string", "maxLength": 300 },
+        "soDocumentUrl": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "soNumber", "soDate", "title"]
+    },
+    "ServiceCreditEarned": {
+      "title": "ServiceCreditEarned",
+      "description": "Earned service credits assigned to an employee under a Special Order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "soId": { "type": "string", "maxLength": 128 },
+        "soNumber": { "type": "string", "maxLength": 100 },
+        "employeeId": { "type": "string", "maxLength": 128 },
+        "earnedCredits": { "type": "number" },
+        "remarks": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "soId", "soNumber", "employeeId", "earnedCredits"]
+    },
+    "ServiceCreditUsed": {
+      "title": "ServiceCreditUsed",
+      "description": "Deducted service credits used by an employee against an earned Special Order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "employeeId": { "type": "string", "maxLength": 128 },
+        "soId": { "type": "string", "maxLength": 128 },
+        "soNumber": { "type": "string", "maxLength": 100 },
+        "dateUsed": { "type": "string", "maxLength": 30 },
+        "usedCredits": { "type": "number" },
+        "remarks": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "employeeId", "soId", "soNumber", "dateUsed", "usedCredits"]
+    },
+    "LeaveRecord": {
+      "title": "LeaveRecord",
+      "description": "Leave record application for an employee",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "employeeId": { "type": "string", "maxLength": 128 },
+        "leaveType": { "type": "string", "maxLength": 100 },
+        "dateFrom": { "type": "string", "maxLength": 30 },
+        "dateTo": { "type": "string", "maxLength": 30 },
+        "numberOfDays": { "type": "number" },
+        "remarks": { "type": "string", "maxLength": 500 },
+        "documentUrl": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "employeeId", "leaveType", "dateFrom", "dateTo", "numberOfDays"]
+    },
+    "DeletedEmployee": {
+      "title": "DeletedEmployee",
+      "description": "Archived employee record in trash",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "deletedAt": { "type": "string", "maxLength": 64 },
+        "deletedBy": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "deletedAt"]
+    },
+    "DeletedSchool": {
+      "title": "DeletedSchool",
+      "description": "Archived school record in trash",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "deletedAt": { "type": "string", "maxLength": 64 },
+        "deletedBy": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "deletedAt"]
+    },
+    "DeletedSpecialOrder": {
+      "title": "DeletedSpecialOrder",
+      "description": "Archived special order in trash",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "deletedAt": { "type": "string", "maxLength": 64 },
+        "deletedBy": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "deletedAt"]
+    },
+    "DeletedLeaveRecord": {
+      "title": "DeletedLeaveRecord",
+      "description": "Archived leave record in trash",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "deletedAt": { "type": "string", "maxLength": 64 },
+        "deletedBy": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "deletedAt"]
+    }
+  },
+  "firestore": {
+    "/schools/{schoolId}": {
+      "schema": "School",
+      "description": "Guimba West District public schools collection"
+    },
+    "/employees/{employeeId}": {
+      "schema": "Employee",
+      "description": "Guimba West District personnel records"
+    },
+    "/promotions/{promotionId}": {
+      "schema": "PromotionRecord",
+      "description": "Employee appointment and promotion history"
+    },
+    "/schoolAssignments/{assignmentId}": {
+      "schema": "SchoolAssignmentRecord",
+      "description": "School assignments and transfers"
+    },
+    "/specialOrders/{specialOrderId}": {
+      "schema": "SpecialOrder",
+      "description": "Special orders for service credits"
+    },
+    "/serviceCreditsEarned/{creditId}": {
+      "schema": "ServiceCreditEarned",
+      "description": "Earned credits assigned from Special Orders"
+    },
+    "/serviceCreditsUsed/{creditId}": {
+      "schema": "ServiceCreditUsed",
+      "description": "Used credits deducted from Special Orders"
+    },
+    "/leaveRecords/{leaveId}": {
+      "schema": "LeaveRecord",
+      "description": "Leave applications and absence tracking"
+    },
+    "/deletedEmployees/{id}": {
+      "schema": "DeletedEmployee",
+      "description": "Archived employee trash bin records"
+    },
+    "/deletedSchools/{id}": {
+      "schema": "DeletedSchool",
+      "description": "Archived school trash bin records"
+    },
+    "/deletedSpecialOrders/{id}": {
+      "schema": "DeletedSpecialOrder",
+      "description": "Archived special order trash bin records"
+    },
+    "/deletedLeaveRecords/{id}": {
+      "schema": "DeletedLeaveRecord",
+      "description": "Archived leave record trash bin records"
+    }
+  }
+}

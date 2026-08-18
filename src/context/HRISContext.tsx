@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { StorageService } from '../services/storageService';
+import { FirestoreSyncService } from '../services/firestoreService';
 import { 
   Employee, EmployeeFull, DeletedEmployee, School, DeletedSchool, DeletedLeaveRecord, DeletedSpecialOrder, SpecialOrder, ServiceCreditEarned, 
   ServiceCreditUsed, PromotionRecord, SchoolAssignmentRecord, LeaveRecord,
@@ -121,6 +122,106 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => StorageService.saveSchoolAssignments(schoolAssignments), [schoolAssignments]);
   useEffect(() => StorageService.saveLeaveRecords(leaveRecords), [leaveRecords]);
   useEffect(() => StorageService.saveDeletedLeaveRecords(deletedLeaveRecords), [deletedLeaveRecords]);
+
+  // Firestore Cloud Synchronization & Subscriptions
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncInitialCloudData = async () => {
+      try {
+        const isSchoolsEmpty = await FirestoreSyncService.isCollectionEmpty('schools');
+        if (isSchoolsEmpty && isMounted) {
+          await FirestoreSyncService.batchSaveItems('schools', StorageService.getSchools());
+        }
+        const isEmployeesEmpty = await FirestoreSyncService.isCollectionEmpty('employees');
+        if (isEmployeesEmpty && isMounted) {
+          await FirestoreSyncService.batchSaveItems('employees', StorageService.getEmployees());
+        }
+        const isSOEmpty = await FirestoreSyncService.isCollectionEmpty('specialOrders');
+        if (isSOEmpty && isMounted) {
+          await FirestoreSyncService.batchSaveItems('specialOrders', StorageService.getSpecialOrders());
+        }
+        const isPromosEmpty = await FirestoreSyncService.isCollectionEmpty('promotions');
+        if (isPromosEmpty && isMounted) {
+          await FirestoreSyncService.batchSaveItems('promotions', StorageService.getPromotions());
+        }
+        const isAssignEmpty = await FirestoreSyncService.isCollectionEmpty('schoolAssignments');
+        if (isAssignEmpty && isMounted) {
+          await FirestoreSyncService.batchSaveItems('schoolAssignments', StorageService.getSchoolAssignments());
+        }
+        const isEarnedEmpty = await FirestoreSyncService.isCollectionEmpty('serviceCreditsEarned');
+        if (isEarnedEmpty && isMounted) {
+          await FirestoreSyncService.batchSaveItems('serviceCreditsEarned', StorageService.getEarnedCredits());
+        }
+        const isUsedEmpty = await FirestoreSyncService.isCollectionEmpty('serviceCreditsUsed');
+        if (isUsedEmpty && isMounted) {
+          await FirestoreSyncService.batchSaveItems('serviceCreditsUsed', StorageService.getUsedCredits());
+        }
+        const isLeaveEmpty = await FirestoreSyncService.isCollectionEmpty('leaveRecords');
+        if (isLeaveEmpty && isMounted) {
+          await FirestoreSyncService.batchSaveItems('leaveRecords', StorageService.getLeaveRecords());
+        }
+      } catch (err) {
+        console.warn('[Firebase] Initial sync notice:', err);
+      }
+    };
+
+    syncInitialCloudData();
+
+    // Subscribe to collections
+    const unsubSchools = FirestoreSyncService.subscribeToCollection<School>('schools', (cloud) => {
+      if (cloud && cloud.length > 0) setSchools(cloud);
+    });
+    const unsubEmps = FirestoreSyncService.subscribeToCollection<Employee>('employees', (cloud) => {
+      if (cloud && cloud.length > 0) setEmployees(cloud);
+    });
+    const unsubPromos = FirestoreSyncService.subscribeToCollection<PromotionRecord>('promotions', (cloud) => {
+      if (cloud && cloud.length > 0) setPromotions(cloud);
+    });
+    const unsubAssign = FirestoreSyncService.subscribeToCollection<SchoolAssignmentRecord>('schoolAssignments', (cloud) => {
+      if (cloud && cloud.length > 0) setSchoolAssignments(cloud);
+    });
+    const unsubSO = FirestoreSyncService.subscribeToCollection<SpecialOrder>('specialOrders', (cloud) => {
+      if (cloud && cloud.length > 0) setSpecialOrders(cloud);
+    });
+    const unsubEarned = FirestoreSyncService.subscribeToCollection<ServiceCreditEarned>('serviceCreditsEarned', (cloud) => {
+      if (cloud && cloud.length > 0) setEarnedCredits(cloud);
+    });
+    const unsubUsed = FirestoreSyncService.subscribeToCollection<ServiceCreditUsed>('serviceCreditsUsed', (cloud) => {
+      if (cloud && cloud.length > 0) setUsedCredits(cloud);
+    });
+    const unsubLeave = FirestoreSyncService.subscribeToCollection<LeaveRecord>('leaveRecords', (cloud) => {
+      if (cloud && cloud.length > 0) setLeaveRecords(cloud);
+    });
+    const unsubDelEmp = FirestoreSyncService.subscribeToCollection<DeletedEmployee>('deletedEmployees', (cloud) => {
+      setDeletedEmployees(cloud);
+    });
+    const unsubDelSchool = FirestoreSyncService.subscribeToCollection<DeletedSchool>('deletedSchools', (cloud) => {
+      setDeletedSchools(cloud);
+    });
+    const unsubDelSO = FirestoreSyncService.subscribeToCollection<DeletedSpecialOrder>('deletedSpecialOrders', (cloud) => {
+      setDeletedSpecialOrders(cloud);
+    });
+    const unsubDelLeave = FirestoreSyncService.subscribeToCollection<DeletedLeaveRecord>('deletedLeaveRecords', (cloud) => {
+      setDeletedLeaveRecords(cloud);
+    });
+
+    return () => {
+      isMounted = false;
+      unsubSchools();
+      unsubEmps();
+      unsubPromos();
+      unsubAssign();
+      unsubSO();
+      unsubEarned();
+      unsubUsed();
+      unsubLeave();
+      unsubDelEmp();
+      unsubDelSchool();
+      unsubDelSO();
+      unsubDelLeave();
+    };
+  }, []);
 
   // Dynamic enrichment of employees based on latest promotion appointment date
   const enrichedEmployees = useMemo(() => {

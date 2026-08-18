@@ -1,0 +1,193 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Catch-all Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common Security Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 1. Schools Collection
+    function isValidSchool(data) {
+      return data.keys().hasAll(['id', 'name', 'status'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && (data.status == 'Active' || data.status == 'Inactive');
+    }
+
+    match /schools/{schoolId} {
+      allow read: if true;
+      allow create, update: if isValidId(schoolId) && isValidSchool(incoming());
+      allow delete: if isValidId(schoolId);
+    }
+
+    // 2. Employees Collection
+    function isValidEmployee(data) {
+      return data.keys().hasAll(['id', 'firstName', 'lastName', 'employeeNumber', 'currentPosition', 'schoolId', 'schoolName', 'status'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.firstName is string && data.firstName.size() > 0 && data.firstName.size() <= 100
+        && data.lastName is string && data.lastName.size() > 0 && data.lastName.size() <= 100
+        && data.employeeNumber is string && data.employeeNumber.size() > 0 && data.employeeNumber.size() <= 50
+        && data.currentPosition is string && data.currentPosition.size() > 0 && data.currentPosition.size() <= 100
+        && data.schoolId is string && data.schoolId.size() > 0 && data.schoolId.size() <= 128
+        && data.schoolName is string && data.schoolName.size() > 0 && data.schoolName.size() <= 200
+        && (data.status == 'Active' || data.status == 'Inactive');
+    }
+
+    match /employees/{employeeId} {
+      allow read: if true;
+      allow create, update: if isValidId(employeeId) && isValidEmployee(incoming());
+      allow delete: if isValidId(employeeId);
+    }
+
+    // 3. Promotions Collection
+    function isValidPromotion(data) {
+      return data.keys().hasAll(['id', 'employeeId', 'position', 'itemNumber', 'appointmentDate'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.employeeId is string && data.employeeId.size() > 0 && data.employeeId.size() <= 128
+        && data.position is string && data.position.size() > 0 && data.position.size() <= 100
+        && data.itemNumber is string && data.itemNumber.size() > 0 && data.itemNumber.size() <= 100
+        && data.appointmentDate is string && data.appointmentDate.size() > 0 && data.appointmentDate.size() <= 30;
+    }
+
+    match /promotions/{promotionId} {
+      allow read: if true;
+      allow create, update: if isValidId(promotionId) && isValidPromotion(incoming());
+      allow delete: if isValidId(promotionId);
+    }
+
+    // 4. School Assignments Collection
+    function isValidSchoolAssignment(data) {
+      return data.keys().hasAll(['id', 'employeeId', 'schoolId', 'schoolName', 'effectiveDateFrom'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.employeeId is string && data.employeeId.size() > 0 && data.employeeId.size() <= 128
+        && data.schoolId is string && data.schoolId.size() > 0 && data.schoolId.size() <= 128
+        && data.schoolName is string && data.schoolName.size() > 0 && data.schoolName.size() <= 200
+        && data.effectiveDateFrom is string && data.effectiveDateFrom.size() > 0 && data.effectiveDateFrom.size() <= 30;
+    }
+
+    match /schoolAssignments/{assignmentId} {
+      allow read: if true;
+      allow create, update: if isValidId(assignmentId) && isValidSchoolAssignment(incoming());
+      allow delete: if isValidId(assignmentId);
+    }
+
+    // 5. Special Orders Collection
+    function isValidSpecialOrder(data) {
+      return data.keys().hasAll(['id', 'soNumber', 'soDate', 'title'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.soNumber is string && data.soNumber.size() > 0 && data.soNumber.size() <= 100
+        && data.soDate is string && data.soDate.size() > 0 && data.soDate.size() <= 30
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 300;
+    }
+
+    match /specialOrders/{specialOrderId} {
+      allow read: if true;
+      allow create, update: if isValidId(specialOrderId) && isValidSpecialOrder(incoming());
+      allow delete: if isValidId(specialOrderId);
+    }
+
+    // 6. Service Credits Earned Collection
+    function isValidEarnedCredit(data) {
+      return data.keys().hasAll(['id', 'soId', 'soNumber', 'employeeId', 'earnedCredits'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.soId is string && data.soId.size() > 0 && data.soId.size() <= 128
+        && data.soNumber is string && data.soNumber.size() > 0 && data.soNumber.size() <= 100
+        && data.employeeId is string && data.employeeId.size() > 0 && data.employeeId.size() <= 128
+        && data.earnedCredits is number && data.earnedCredits >= 0;
+    }
+
+    match /serviceCreditsEarned/{creditId} {
+      allow read: if true;
+      allow create, update: if isValidId(creditId) && isValidEarnedCredit(incoming());
+      allow delete: if isValidId(creditId);
+    }
+
+    // 7. Service Credits Used Collection
+    function isValidUsedCredit(data) {
+      return data.keys().hasAll(['id', 'employeeId', 'soId', 'soNumber', 'dateUsed', 'usedCredits'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.employeeId is string && data.employeeId.size() > 0 && data.employeeId.size() <= 128
+        && data.soId is string && data.soId.size() > 0 && data.soId.size() <= 128
+        && data.soNumber is string && data.soNumber.size() > 0 && data.soNumber.size() <= 100
+        && data.dateUsed is string && data.dateUsed.size() > 0 && data.dateUsed.size() <= 30
+        && data.usedCredits is number && data.usedCredits >= 0;
+    }
+
+    match /serviceCreditsUsed/{creditId} {
+      allow read: if true;
+      allow create, update: if isValidId(creditId) && isValidUsedCredit(incoming());
+      allow delete: if isValidId(creditId);
+    }
+
+    // 8. Leave Records Collection
+    function isValidLeaveRecord(data) {
+      return data.keys().hasAll(['id', 'employeeId', 'leaveType', 'dateFrom', 'dateTo', 'numberOfDays'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.employeeId is string && data.employeeId.size() > 0 && data.employeeId.size() <= 128
+        && data.leaveType is string && data.leaveType.size() > 0 && data.leaveType.size() <= 100
+        && data.dateFrom is string && data.dateFrom.size() > 0 && data.dateFrom.size() <= 30
+        && data.dateTo is string && data.dateTo.size() > 0 && data.dateTo.size() <= 30
+        && data.numberOfDays is number && data.numberOfDays > 0;
+    }
+
+    match /leaveRecords/{leaveId} {
+      allow read: if true;
+      allow create, update: if isValidId(leaveId) && isValidLeaveRecord(incoming());
+      allow delete: if isValidId(leaveId);
+    }
+
+    // 9. Deleted Collections (Trash/Archive)
+    function isValidDeletedRecord(data) {
+      return data.keys().hasAll(['id', 'deletedAt'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.deletedAt is string && data.deletedAt.size() > 0 && data.deletedAt.size() <= 64;
+    }
+
+    match /deletedEmployees/{id} {
+      allow read: if true;
+      allow create, update: if isValidId(id) && isValidDeletedRecord(incoming());
+      allow delete: if isValidId(id);
+    }
+
+    match /deletedSchools/{id} {
+      allow read: if true;
+      allow create, update: if isValidId(id) && isValidDeletedRecord(incoming());
+      allow delete: if isValidId(id);
+    }
+
+    match /deletedSpecialOrders/{id} {
+      allow read: if true;
+      allow create, update: if isValidId(id) && isValidDeletedRecord(incoming());
+      allow delete: if isValidId(id);
+    }
+
+    match /deletedLeaveRecords/{id} {
+      allow read: if true;
+      allow create, update: if isValidId(id) && isValidDeletedRecord(incoming());
+      allow delete: if isValidId(id);
+    }
+
+    // Test connection doc
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+  }
+}
