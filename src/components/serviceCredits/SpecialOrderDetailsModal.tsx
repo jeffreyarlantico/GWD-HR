@@ -52,27 +52,18 @@ export const SpecialOrderDetailsModal: React.FC<SpecialOrderDetailsModalProps> =
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState('ALL');
   const [copiedSO, setCopiedSO] = useState(false);
 
+  // If not open or no SO selected
+  if (!isOpen || !specialOrder) return null;
+
   // Filter earned credits specifically for this SO
-  const soEarnedCredits = useMemo(() => {
-    if (!specialOrder) return [];
-    return earnedCredits.filter(ec => ec.soId === specialOrder.id);
-  }, [earnedCredits, specialOrder]);
+  const soEarnedCredits = earnedCredits.filter(ec => ec.soId === specialOrder.id);
   
   // Filter used credits specifically for this SO
-  const soUsedCredits = useMemo(() => {
-    if (!specialOrder) return [];
-    return usedCredits.filter(uc => uc.soId === specialOrder.id);
-  }, [usedCredits, specialOrder]);
+  const soUsedCredits = usedCredits.filter(uc => uc.soId === specialOrder.id);
 
   // Total calculations
-  const totalGrantedCredits = useMemo(() => {
-    return soEarnedCredits.reduce((sum, item) => sum + (item.earnedCredits || 0), 0);
-  }, [soEarnedCredits]);
-
-  const totalUsedCreditsForSO = useMemo(() => {
-    return soUsedCredits.reduce((sum, item) => sum + (item.usedCredits || 0), 0);
-  }, [soUsedCredits]);
-
+  const totalGrantedCredits = soEarnedCredits.reduce((sum, item) => sum + (item.earnedCredits || 0), 0);
+  const totalUsedCreditsForSO = soUsedCredits.reduce((sum, item) => sum + (item.usedCredits || 0), 0);
   const remainingAvailableForSO = Math.max(0, totalGrantedCredits - totalUsedCreditsForSO);
   const utilizationPercentage = totalGrantedCredits > 0 
     ? Math.min(100, Math.round((totalUsedCreditsForSO / totalGrantedCredits) * 100)) 
@@ -80,7 +71,6 @@ export const SpecialOrderDetailsModal: React.FC<SpecialOrderDetailsModalProps> =
 
   // Map employee info with credits for this SO
   const recipientRoster = useMemo(() => {
-    if (!specialOrder) return [];
     return soEarnedCredits.map(ec => {
       const employee = employees.find(e => e.id === ec.employeeId);
       
@@ -108,7 +98,7 @@ export const SpecialOrderDetailsModal: React.FC<SpecialOrderDetailsModalProps> =
         createdAt: ec.createdAt
       };
     });
-  }, [soEarnedCredits, soUsedCredits, employees, specialOrder]);
+  }, [soEarnedCredits, soUsedCredits, employees]);
 
   // Filter recipient roster based on search and school
   const filteredRoster = useMemo(() => {
@@ -129,7 +119,6 @@ export const SpecialOrderDetailsModal: React.FC<SpecialOrderDetailsModalProps> =
 
   // Copy SO Number to clipboard
   const handleCopySO = () => {
-    if (!specialOrder) return;
     navigator.clipboard.writeText(specialOrder.soNumber);
     setCopiedSO(true);
     setTimeout(() => setCopiedSO(false), 2000);
@@ -138,9 +127,6 @@ export const SpecialOrderDetailsModal: React.FC<SpecialOrderDetailsModalProps> =
   const handleOpenDoc = (url: string) => {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
-
-  // If not open or no SO selected, return null AFTER all hooks are called
-  if (!isOpen || !specialOrder) return null;
 
   return (
     <div
