@@ -3,13 +3,16 @@ import fs from 'fs';
 import { google } from 'googleapis';
 import formidable from 'formidable';
 
+// Disable default body parser so formidable can process multipart/form-data
 export const config = {
   api: {
-    bodyParser: false, // Disables standard body parser so formidable can stream multipart form data
+    bodyParser: false,
   },
 };
 
-// Helper to set CORS headers
+const STRICT_MAX_FILE_SIZE = 1048576; // Strict 1 MB limit (1,048,576 bytes)
+const DEFAULT_FOLDER_ID = '1oHwkVipP50ixdFSTFDHScld7VZtv9eHb';
+
 function setCorsHeaders(res: ServerResponse) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -20,10 +23,10 @@ function setCorsHeaders(res: ServerResponse) {
   );
 }
 
-// Fallback folder ID
-const DEFAULT_FOLDER_ID = '1oHwkVipP50ixdFSTFDHScld7VZtv9eHb';
-
-export default async function handler(req: IncomingMessage & { body?: any; query?: any }, res: ServerResponse) {
+export default async function handler(
+  req: IncomingMessage & { body?: any; query?: any },
+  res: ServerResponse
+) {
   setCorsHeaders(res);
 
   if (req.method === 'OPTIONS') {
@@ -35,29 +38,30 @@ export default async function handler(req: IncomingMessage & { body?: any; query
   if (req.method !== 'POST') {
     res.statusCode = 405;
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ error: 'Method Not Allowed. Only POST requests are supported.' }));
+    res.end(JSON.stringify({ error: 'Method Not Allowed. POST is required.' }));
     return;
   }
 
+  // 1. Read Environment Variables
   const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const rawKey = process.env.GOOGLE_PRIVATE_KEY;
+  const rawPrivateKey = process.env.GOOGLE_PRIVATE_KEY;
   const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || DEFAULT_FOLDER_ID;
 
-  if (!clientEmail || !rawKey) {
+  if (!clientEmail || !rawPrivateKey) {
     res.statusCode = 500;
     res.setHeader('Content-Type', 'application/json');
     res.end(
       JSON.stringify({
         error:
-          'Google Service Account credentials are missing. Please set GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_PRIVATE_KEY in your environment variables.',
+          'Google Service Account credentials missing. Please configure GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_PRIVATE_KEY in Vercel Environment Variables.',
       })
     );
     return;
   }
 
   try {
-    // 1. Initialize Google Auth with Service Account
-    const privateKey = rawKey.replace(/\\n/g, '\n');
+    // 2. Initialize Google Drive API with Service Account credentials
+    const privateKey = rawPrivateKey.replace(/\\n/g, '\n');
     const auth = new google.auth.JWT({
       email: clientEmail,
       key: privateKey,
@@ -66,34 +70,47 @@ export default async function handler(req: IncomingMessage & { body?: any; query
 
     const drive = google.drive({ version: 'v3', auth });
 
-    // 2. Parse Multipart Form with formidable
+    // 3. Parse Multipart Form using formidable
     const form = formidable({
-      maxFileSize: 10 * 1024 * 1024, // 10MB server limit (client enforces 1MB strict)
+      maxFileSize: STRICT_MAX_FILE_SIZE, // Rejects files larger than 1MB at parser level
       keepExtensions: true,
     });
 
     const [fields, files] = await new Promise<[formidable.Fields, formidable.Files]>((resolve, reject) => {
-      form.parse(req, (err, fFields, fFiles) => {
-        if (err) reject(err);
-        else resolve([fFields, fFiles]);
+      form.parse(req, (err, parsedFields, parsedFiles) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve([parsedFields, parsedFiles]);
+        }
       });
     });
 
-    // Extract file item (formidable returns File | File[])
     const fileItem = Array.isArray(files.file) ? files.file[0] : files.file;
     if (!fileItem || !fileItem.filepath) {
       res.statusCode = 400;
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: 'No file provided in form data field "file".' }));
+      res.end(JSON.stringify({ error: 'No file provided in form field "file".' }));
       return;
     }
 
-    // Extract custom filename or metadata if provided
+    // Server-side strict file size verification (1 MB limit)
+    if (fileItem.size > STRICT_MAX_FILE_SIZE) {
+      res.statusCode = 400;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({
+          error: `File size exceeds the strict 1 MB limit (${fileItem.size} bytes received. Max allowed is 1,048,576 bytes).`,
+        })
+      );
+      return;
+    }
+
     const customName = Array.isArray(fields.name) ? fields.name[0] : fields.name;
     const finalFileName = customName || fileItem.originalFilename || `upload-${Date.now()}`;
     const mimeType = fileItem.mimetype || 'application/octet-stream';
 
-    // 3. Upload File to Google Drive Folder
+    // 4. Upload file directly to the Google Drive Folder
     const fileStream = fs.createReadStream(fileItem.filepath);
 
     const driveResponse = await drive.files.create({
@@ -106,15 +123,15 @@ export default async function handler(req: IncomingMessage & { body?: any; query
         mimeType: mimeType,
         body: fileStream,
       },
-      fields: 'id, name, mimeType, webViewLink, webContentLink, thumbnailLink, size',
+      fields: 'id, name, mimeType, webViewLink, webContentLink, thumbnailLink',
     });
 
     const fileId = driveResponse.data.id;
     if (!fileId) {
-      throw new Error('Google Drive API did not return a valid file ID.');
+      throw new Error('Failed to retrieve file ID from Google Drive response.');
     }
 
-    // 4. Set Public Viewing Permissions (Anyone with link can view)
+    // 5. Grant public read permission (anyone with link can view)
     try {
       await drive.permissions.create({
         fileId: fileId,
@@ -123,41 +140,43 @@ export default async function handler(req: IncomingMessage & { body?: any; query
           type: 'anyone',
         },
       });
-    } catch (permErr) {
-      console.warn('Warning: Could not set public permissions on uploaded file:', permErr);
+    } catch (permError) {
+      console.warn('Warning: Could not set public permissions on uploaded file:', permError);
     }
 
-    // 5. Retrieve final viewable webViewLink
-    const fileDetails = await drive.files.get({
+    // 6. Retrieve viewable link
+    const fileMeta = await drive.files.get({
       fileId: fileId,
-      fields: 'id, name, mimeType, webViewLink, webContentLink, thumbnailLink, iconLink',
+      fields: 'id, name, mimeType, webViewLink, webContentLink',
     });
 
-    const webViewLink =
-      fileDetails.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view?usp=drivesdk`;
+    const viewLink =
+      fileMeta.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view?usp=drivesdk`;
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
     res.end(
       JSON.stringify({
         success: true,
-        message: 'File successfully uploaded to Google Drive folder.',
+        viewLink: viewLink,
+        webViewLink: viewLink,
         fileId: fileId,
-        fileName: fileDetails.data.name,
-        webViewLink: webViewLink,
-        webContentLink: fileDetails.data.webContentLink,
-        thumbnailLink: fileDetails.data.thumbnailLink,
+        fileName: fileMeta.data.name,
         folderId: folderId,
       })
     );
   } catch (error: any) {
-    console.error('Error uploading file to Google Drive:', error);
-    res.statusCode = 500;
+    console.error('Error handling upload in /api/upload:', error);
+    
+    // Check if error was formidable size limit
+    const isSizeError = error?.code === 1009 || error?.message?.toLowerCase().includes('maxfilesize');
+    res.statusCode = isSizeError ? 400 : 500;
     res.setHeader('Content-Type', 'application/json');
     res.end(
       JSON.stringify({
-        error: error.message || 'An unexpected error occurred while uploading to Google Drive.',
-        details: error.toString(),
+        error: isSizeError 
+          ? 'File size exceeds the strict 1 MB limit (1,048,576 bytes).' 
+          : (error.message || 'An error occurred during Google Drive upload.'),
       })
     );
   }
