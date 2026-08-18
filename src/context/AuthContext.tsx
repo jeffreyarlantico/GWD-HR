@@ -14,21 +14,37 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [role, setRoleState] = useState<Role>(() => {
-    const savedRole = localStorage.getItem('gw_hris_current_role');
-    return (savedRole as Role) || 'ADMIN'; // Default to ADMIN for easy evaluation
+    try {
+      const savedRole = localStorage.getItem('gw_hris_current_role');
+      return (savedRole as Role) || 'ADMIN';
+    } catch {
+      return 'ADMIN';
+    }
   });
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    const savedAuth = sessionStorage.getItem('gw_hris_is_authenticated');
-    return savedAuth === 'true';
+    try {
+      const savedAuth = sessionStorage.getItem('gw_hris_is_authenticated');
+      return savedAuth === 'true';
+    } catch {
+      return false;
+    }
   });
 
   useEffect(() => {
-    localStorage.setItem('gw_hris_current_role', role);
+    try {
+      localStorage.setItem('gw_hris_current_role', role);
+    } catch (e) {
+      console.warn('Storage unavailable:', e);
+    }
   }, [role]);
 
   useEffect(() => {
-    sessionStorage.setItem('gw_hris_is_authenticated', String(isAuthenticated));
+    try {
+      sessionStorage.setItem('gw_hris_is_authenticated', String(isAuthenticated));
+    } catch (e) {
+      console.warn('Storage unavailable:', e);
+    }
   }, [isAuthenticated]);
 
   const login = (selectedRole: Role) => {

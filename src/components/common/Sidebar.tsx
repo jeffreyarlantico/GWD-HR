@@ -100,9 +100,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onTab
           </div>
           <div className="p-1.5 rounded-md bg-slate-800 border border-slate-700 shrink-0">
             {role === 'ADMIN' ? (
-              <Shield className="w-4 h-4 text-emerald-400" title="Admin Account" />
+              <span title="Admin Account">
+                <Shield className="w-4 h-4 text-emerald-400" />
+              </span>
             ) : (
-              <Eye className="w-4 h-4 text-blue-400" title="View Only Account" />
+              <span title="View Only Account">
+                <Eye className="w-4 h-4 text-blue-400" />
+              </span>
             )}
           </div>
         </div>

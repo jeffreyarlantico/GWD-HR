@@ -64,8 +64,7 @@ export const SchoolPersonnelModal: React.FC<SchoolPersonnelModalProps> = ({
         (emp.middleName && emp.middleName.toLowerCase().includes(q)) ||
         emp.employeeNumber.toLowerCase().includes(q) ||
         emp.currentPosition.toLowerCase().includes(q) ||
-        (emp.contactNumber && emp.contactNumber.toLowerCase().includes(q)) ||
-        (emp.emailAddress && emp.emailAddress.toLowerCase().includes(q))
+        emp.itemNumber.toLowerCase().includes(q)
       );
 
       const matchesStatus = statusFilter === 'ALL' || emp.status === statusFilter;
@@ -430,9 +429,9 @@ export const SchoolPersonnelModal: React.FC<SchoolPersonnelModalProps> = ({
                         {/* Current Position */}
                         <td className="py-3.5 px-4">
                           <div className="font-bold text-slate-800">{emp.currentPosition}</div>
-                          {emp.salaryGrade && (
-                            <div className="text-[11px] text-slate-500 font-medium">
-                              SG {emp.salaryGrade}{emp.step ? ` • Step ${emp.step}` : ''}
+                          {emp.itemNumber && (
+                            <div className="text-[11px] text-slate-500 font-medium font-mono">
+                              Item: {emp.itemNumber}
                             </div>
                           )}
                         </td>

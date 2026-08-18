@@ -384,7 +384,7 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
         </div>
 
         {/* Special Orders Credited to this Teacher */}
-        {empFull.earnedCreditsList && empFull.earnedCreditsList.length > 0 && (
+        {empFull.earnedCredits && empFull.earnedCredits.length > 0 && (
           <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
             <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
               <FileText className="w-3.5 h-3.5 text-amber-600" />
@@ -404,9 +404,9 @@ export const EmployeeProfileView: React.FC<EmployeeProfileViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {empFull.earnedCreditsList.map(ec => {
+                  {empFull.earnedCredits.map(ec => {
                     const so = specialOrders.find(s => s.id === ec.soId || s.soNumber === ec.soNumber);
-                    const empUsedForSO = (empFull.usedCreditsList || [])
+                    const empUsedForSO = (empFull.usedCredits || [])
                       .filter(uc => uc.soId === ec.soId || (so && uc.soId === so.id) || uc.soNumber === ec.soNumber)
                       .reduce((sum, u) => sum + (u.usedCredits || 0), 0);
                     const availableForSO = Math.max(0, (ec.earnedCredits || 0) - empUsedForSO);
