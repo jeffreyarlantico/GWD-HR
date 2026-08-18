@@ -1,19 +1,19 @@
-import type { IncomingMessage, ServerResponse } from 'http';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import fs from 'fs';
 import { google } from 'googleapis';
 import formidable from 'formidable';
 
-// Disable default body parser so formidable can process multipart/form-data
+// CRITICAL: Disable Vercel's default body parser so formidable can process the multipart stream
 export const config = {
   api: {
     bodyParser: false,
   },
 };
 
-const STRICT_MAX_FILE_SIZE = 1048576; // Strictly 1 MB limit (1,048,576 bytes)
+const STRICT_MAX_FILE_SIZE = 1048576; // Strict 1 MB limit (1,048,576 bytes)
 const DEFAULT_FOLDER_ID = '1oHwkVipP50ixdFSTFDHScld7VZtv9eHb';
 
-function setCorsHeaders(res: ServerResponse) {
+function setCorsHeaders(res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -24,210 +24,205 @@ function setCorsHeaders(res: ServerResponse) {
 }
 
 /**
- * Sanitizes and cleans the Google Private Key string.
- * Handles escaped newlines, wrapping quotation marks, and line endings.
+ * Bulletproof private key cleaner:
+ * 1. Strips leading/trailing whitespace and surrounding quotation marks.
+ * 2. Converts literal escaped '\\n' strings into true linebreaks.
+ * 3. Handles carriage returns (\r\n -> \n).
  */
-function sanitizePrivateKey(rawKey: string): string {
+function formatPrivateKey(rawKey: string): string {
   let key = rawKey.trim();
-  // Strip accidental outer quotes if added in Vercel UI
   if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
-    key = key.slice(1, -1);
+    key = key.substring(1, key.length - 1);
   }
-  // Convert literal '\n' characters into real linebreaks
-  key = key.replace(/\\n/g, '\n');
-  return key;
+  return key.replace(/\\n/g, '\n').replace(/\r\n/g, '\n');
 }
 
-export default async function handler(
-  req: IncomingMessage & { body?: any; query?: any },
-  res: ServerResponse
-) {
-  const requestStartTime = Date.now();
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const startTime = Date.now();
   setCorsHeaders(res);
 
+  // Handle preflight OPTIONS request
   if (req.method === 'OPTIONS') {
-    res.statusCode = 200;
-    res.end();
-    return;
+    return res.status(200).end();
   }
 
+  // Enforce POST method
   if (req.method !== 'POST') {
-    res.statusCode = 405;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ error: 'Method Not Allowed. POST is required for file uploads.' }));
-    return;
+    return res.status(405).json({
+      success: false,
+      error: 'Method Not Allowed. Please send a POST request with multipart/form-data.',
+      code: 'METHOD_NOT_ALLOWED',
+    });
   }
-
-  console.log('[Upload API] Received POST request at', new Date().toISOString());
-
-  // -------------------------------------------------------------
-  // STEP 1: Environment Variables Diagnostics
-  // -------------------------------------------------------------
-  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
-  const rawPrivateKey = process.env.GOOGLE_PRIVATE_KEY;
-  const folderId = (process.env.GOOGLE_DRIVE_FOLDER_ID || DEFAULT_FOLDER_ID).trim();
-
-  console.log('[Upload API Diagnostics] Checking Environment Variables:', {
-    hasClientEmail: Boolean(clientEmail),
-    clientEmailMasked: clientEmail ? `${clientEmail.slice(0, 4)}...${clientEmail.slice(-10)}` : 'MISSING',
-    hasPrivateKey: Boolean(rawPrivateKey),
-    privateKeyLength: rawPrivateKey ? rawPrivateKey.length : 0,
-    hasFolderId: Boolean(folderId),
-    targetFolderId: folderId,
-  });
-
-  if (!clientEmail || !rawPrivateKey) {
-    const missingVars: string[] = [];
-    if (!clientEmail) missingVars.push('GOOGLE_SERVICE_ACCOUNT_EMAIL');
-    if (!rawPrivateKey) missingVars.push('GOOGLE_PRIVATE_KEY');
-
-    console.error('[Upload API Error] Missing required environment variables:', missingVars);
-    res.statusCode = 500;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(
-      JSON.stringify({
-        error: `Server Configuration Error: Missing environment variables [${missingVars.join(', ')}]. Please verify these in your Vercel Project Settings under Environment Variables.`,
-        code: 'MISSING_ENV_VARS',
-        missing: missingVars,
-      })
-    );
-    return;
-  }
-
-  const cleanedPrivateKey = sanitizePrivateKey(rawPrivateKey);
-  const keyHasHeader = cleanedPrivateKey.includes('-----BEGIN PRIVATE KEY-----');
-  const keyHasFooter = cleanedPrivateKey.includes('-----END PRIVATE KEY-----');
-
-  if (!keyHasHeader || !keyHasFooter) {
-    console.error('[Upload API Error] Malformed private key format:', { keyHasHeader, keyHasFooter });
-    res.statusCode = 500;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(
-      JSON.stringify({
-        error:
-          'Server Configuration Error: GOOGLE_PRIVATE_KEY is missing standard PEM headers ("-----BEGIN PRIVATE KEY-----" / "-----END PRIVATE KEY-----"). Please ensure you copied the entire private_key field from your service account JSON file.',
-        code: 'INVALID_PRIVATE_KEY_PEM',
-      })
-    );
-    return;
-  }
-
-  // -------------------------------------------------------------
-  // STEP 2: Parse Formidable Multipart Data with 1 MB Limit
-  // -------------------------------------------------------------
-  let parsedFields: formidable.Fields = {};
-  let parsedFiles: formidable.Files = {};
 
   try {
-    const form = formidable({
-      maxFileSize: STRICT_MAX_FILE_SIZE, // 1 MB limit
-      keepExtensions: true,
-      allowEmptyFiles: false,
-    });
+    // -------------------------------------------------------------
+    // STEP 1: Validate Environment Variables
+    // -------------------------------------------------------------
+    const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim();
+    const rawPrivateKey = process.env.GOOGLE_PRIVATE_KEY;
+    const folderId = (process.env.GOOGLE_DRIVE_FOLDER_ID || DEFAULT_FOLDER_ID).trim();
 
-    [parsedFields, parsedFiles] = await new Promise<[formidable.Fields, formidable.Files]>((resolve, reject) => {
-      form.parse(req, (err, fields, files) => {
-        if (err) reject(err);
-        else resolve([fields, files]);
+    if (!clientEmail || !rawPrivateKey) {
+      const missing = [];
+      if (!clientEmail) missing.push('GOOGLE_SERVICE_ACCOUNT_EMAIL');
+      if (!rawPrivateKey) missing.push('GOOGLE_PRIVATE_KEY');
+
+      return res.status(500).json({
+        success: false,
+        error: `Missing environment variable(s): ${missing.join(', ')}. Please configure them in your Vercel Project Settings.`,
+        code: 'MISSING_ENV_VARIABLES',
+        missing,
       });
-    });
-  } catch (formError: any) {
-    console.error('[Upload API Error] Formidable parsing failed:', formError);
-    const isExceeded =
-      formError?.code === 1009 ||
-      formError?.httpCode === 413 ||
-      formError?.message?.toLowerCase().includes('maxfilesize');
+    }
 
-    res.statusCode = isExceeded ? 400 : 500;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(
-      JSON.stringify({
-        error: isExceeded
+    const formattedKey = formatPrivateKey(rawPrivateKey);
+
+    // Validate PEM block structure
+    if (!formattedKey.includes('-----BEGIN PRIVATE KEY-----') || !formattedKey.includes('-----END PRIVATE KEY-----')) {
+      return res.status(500).json({
+        success: false,
+        error: 'GOOGLE_PRIVATE_KEY is missing standard PEM block headers ("-----BEGIN PRIVATE KEY-----" / "-----END PRIVATE KEY-----"). Please re-copy the entire private_key string from your Service Account JSON file.',
+        code: 'MALFORMED_PRIVATE_KEY',
+      });
+    }
+
+    // -------------------------------------------------------------
+    // STEP 2: Parse Multipart Form Data safely with Formidable
+    // -------------------------------------------------------------
+    let parsedFields: formidable.Fields;
+    let parsedFiles: formidable.Files;
+
+    try {
+      const form = formidable({
+        maxFileSize: STRICT_MAX_FILE_SIZE, // 1 MB strict cutoff
+        keepExtensions: true,
+        allowEmptyFiles: false,
+      });
+
+      const parseResult = await new Promise<{ fields: formidable.Fields; files: formidable.Files }>((resolve, reject) => {
+        form.parse(req, (err, fields, files) => {
+          if (err) reject(err);
+          else resolve({ fields, files });
+        });
+      });
+
+      parsedFields = parseResult.fields;
+      parsedFiles = parseResult.files;
+    } catch (formError: any) {
+      const isSizeLimit =
+        formError?.code === 1009 ||
+        formError?.httpCode === 413 ||
+        formError?.message?.toLowerCase().includes('maxfilesize');
+
+      return res.status(400).json({
+        success: false,
+        error: isSizeLimit
           ? 'File size exceeds the strict 1 MB limit (1,048,576 bytes). Please resize or compress your file.'
-          : `Multipart form parse error: ${formError.message}`,
-        code: isExceeded ? 'FILE_TOO_LARGE' : 'FORM_PARSE_ERROR',
-        details: formError.message,
-      })
-    );
-    return;
-  }
+          : `Multipart form parsing error: ${formError?.message || 'Unknown parse error'}`,
+        code: isSizeLimit ? 'FILE_TOO_LARGE' : 'FORM_PARSE_ERROR',
+        details: formError?.message,
+      });
+    }
 
-  const fileItem = Array.isArray(parsedFiles.file) ? parsedFiles.file[0] : parsedFiles.file;
-  if (!fileItem || !fileItem.filepath) {
-    console.error('[Upload API Error] No valid file found in request payload');
-    res.statusCode = 400;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(
-      JSON.stringify({
-        error: 'No file received. Ensure form-data contains field "file".',
+    // Extract file item
+    const fileItem = Array.isArray(parsedFiles.file) ? parsedFiles.file[0] : parsedFiles.file;
+    if (!fileItem || !fileItem.filepath) {
+      return res.status(400).json({
+        success: false,
+        error: 'No file received in request payload. Ensure form-data contains field "file".',
         code: 'NO_FILE_PROVIDED',
-      })
-    );
-    return;
-  }
+      });
+    }
 
-  console.log('[Upload API] Received File:', {
-    name: fileItem.originalFilename,
-    sizeBytes: fileItem.size,
-    mimeType: fileItem.mimetype,
-  });
-
-  if (fileItem.size > STRICT_MAX_FILE_SIZE) {
-    res.statusCode = 400;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(
-      JSON.stringify({
-        error: `File size exceeds the strict 1 MB limit (${fileItem.size} bytes received. Max allowed is 1,048,576 bytes).`,
+    // Double check size in bytes
+    if (fileItem.size > STRICT_MAX_FILE_SIZE) {
+      return res.status(400).json({
+        success: false,
+        error: `File size (${fileItem.size.toLocaleString()} bytes) exceeds the strict 1 MB limit (1,048,576 bytes).`,
         code: 'FILE_TOO_LARGE',
         receivedBytes: fileItem.size,
-        maxBytes: STRICT_MAX_FILE_SIZE,
-      })
-    );
-    return;
-  }
+        maxAllowedBytes: STRICT_MAX_FILE_SIZE,
+      });
+    }
 
-  // -------------------------------------------------------------
-  // STEP 3: Authenticate & Upload to Google Drive
-  // -------------------------------------------------------------
-  try {
-    console.log('[Upload API] Initializing Google Drive JWT client...');
-    const auth = new google.auth.JWT({
-      email: clientEmail,
-      key: cleanedPrivateKey,
-      scopes: ['https://www.googleapis.com/auth/drive'],
-    });
+    // -------------------------------------------------------------
+    // STEP 3: Authenticate with Google Drive (Wrapped in Try/Catch)
+    // -------------------------------------------------------------
+    let drive;
+    try {
+      const auth = new google.auth.JWT({
+        email: clientEmail,
+        key: formattedKey,
+        scopes: ['https://www.googleapis.com/auth/drive'],
+      });
+      drive = google.drive({ version: 'v3', auth });
+    } catch (authError: any) {
+      return res.status(500).json({
+        success: false,
+        error: `Google Service Account JWT initialization failed: ${authError?.message || 'Invalid credentials'}`,
+        code: 'AUTH_INITIALIZATION_ERROR',
+        details: authError?.message,
+      });
+    }
 
-    const drive = google.drive({ version: 'v3', auth });
-
+    // -------------------------------------------------------------
+    // STEP 4: Upload File to Google Drive Folder
+    // -------------------------------------------------------------
     const customName = Array.isArray(parsedFields.name) ? parsedFields.name[0] : parsedFields.name;
     const finalFileName = customName || fileItem.originalFilename || `upload-${Date.now()}`;
     const mimeType = fileItem.mimetype || 'application/octet-stream';
-
-    console.log('[Upload API] Uploading stream to Google Drive folder:', folderId);
     const fileStream = fs.createReadStream(fileItem.filepath);
 
-    const driveResponse = await drive.files.create({
-      requestBody: {
-        name: finalFileName,
-        parents: [folderId],
-        mimeType: mimeType,
-      },
-      media: {
-        mimeType: mimeType,
-        body: fileStream,
-      },
-      fields: 'id, name, mimeType, webViewLink, webContentLink, thumbnailLink',
-    });
+    let driveResponse;
+    try {
+      driveResponse = await drive.files.create({
+        requestBody: {
+          name: finalFileName,
+          parents: [folderId],
+          mimeType: mimeType,
+        },
+        media: {
+          mimeType: mimeType,
+          body: fileStream,
+        },
+        fields: 'id, name, mimeType, webViewLink, webContentLink, thumbnailLink',
+      });
+    } catch (uploadError: any) {
+      let friendlyError = uploadError?.message || 'Failed to create file in Google Drive.';
+      let errorCode = 'GOOGLE_DRIVE_UPLOAD_FAILED';
+
+      if (uploadError?.message?.includes('invalid_grant') || uploadError?.message?.includes('Invalid JWT')) {
+        friendlyError = 'Invalid Service Account private key or email. Verify GOOGLE_PRIVATE_KEY and GOOGLE_SERVICE_ACCOUNT_EMAIL.';
+        errorCode = 'INVALID_SERVICE_ACCOUNT_CREDENTIALS';
+      } else if (uploadError?.code === 404 || uploadError?.message?.includes('File not found')) {
+        friendlyError = `Google Drive folder "${folderId}" not found. Verify the folder ID and ensure it is shared with ${clientEmail}.`;
+        errorCode = 'FOLDER_NOT_FOUND';
+      } else if (uploadError?.code === 403 || uploadError?.message?.includes('insufficientFilePermissions')) {
+        friendlyError = `Permission denied: Service Account (${clientEmail}) is not an Editor on Google Drive folder "${folderId}".`;
+        errorCode = 'FOLDER_ACCESS_DENIED';
+      }
+
+      return res.status(500).json({
+        success: false,
+        error: friendlyError,
+        code: errorCode,
+        details: uploadError?.response?.data || uploadError?.message,
+        folderId,
+      });
+    }
 
     const fileId = driveResponse.data.id;
     if (!fileId) {
-      throw new Error('Google Drive files.create did not return a valid file ID.');
+      return res.status(500).json({
+        success: false,
+        error: 'Google Drive uploaded the file but did not return a valid file ID.',
+        code: 'MISSING_FILE_ID',
+      });
     }
 
-    console.log('[Upload API] File uploaded successfully to Google Drive. File ID:', fileId);
-
     // -------------------------------------------------------------
-    // STEP 4: Set Permission (Anyone with link can view)
+    // STEP 5: Set Public Read Permissions (Safe fallback)
     // -------------------------------------------------------------
     try {
       await drive.permissions.create({
@@ -237,66 +232,45 @@ export default async function handler(
           type: 'anyone',
         },
       });
-      console.log('[Upload API] Public read permission granted for file:', fileId);
     } catch (permError: any) {
-      console.warn('[Upload API Warning] Could not set public permission on file:', permError?.message);
+      console.warn('Could not set public permissions on file:', permError?.message);
     }
 
     // -------------------------------------------------------------
-    // STEP 5: Retrieve verified viewable link
+    // STEP 6: Fetch Verified View Link & Return JSON Response
     // -------------------------------------------------------------
-    const fileMeta = await drive.files.get({
-      fileId: fileId,
-      fields: 'id, name, mimeType, webViewLink, webContentLink, thumbnailLink',
-    });
+    let viewLink = driveResponse.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view?usp=drivesdk`;
 
-    const viewLink =
-      fileMeta.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view?usp=drivesdk`;
-
-    const totalDurationMs = Date.now() - requestStartTime;
-    console.log(`[Upload API Success] Completed in ${totalDurationMs}ms. ViewLink:`, viewLink);
-
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(
-      JSON.stringify({
-        success: true,
-        viewLink: viewLink,
-        webViewLink: viewLink,
+    try {
+      const fileMetadata = await drive.files.get({
         fileId: fileId,
-        fileName: fileMeta.data.name || finalFileName,
-        folderId: folderId,
-        durationMs: totalDurationMs,
-      })
-    );
-  } catch (driveError: any) {
-    console.error('[Upload API Error] Google Drive API operation failed:', driveError);
-
-    let friendlyMessage = driveError?.message || 'An error occurred during Google Drive upload.';
-    let errorCode = 'GOOGLE_DRIVE_API_ERROR';
-
-    if (driveError?.message?.includes('invalid_grant') || driveError?.message?.includes('Invalid JWT')) {
-      friendlyMessage =
-        'Authentication Error: Invalid Google Service Account credentials or system clock mismatch. Please double-check GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_PRIVATE_KEY in Vercel.';
-      errorCode = 'INVALID_SERVICE_ACCOUNT_CREDENTIALS';
-    } else if (driveError?.code === 404 || driveError?.message?.includes('File not found')) {
-      friendlyMessage = `Google Drive Folder "${folderId}" not found or not accessible. Make sure the folder exists and is shared with your Service Account email: ${clientEmail}`;
-      errorCode = 'FOLDER_NOT_FOUND_OR_UNSHARED';
-    } else if (driveError?.code === 403 || driveError?.message?.includes('insufficientFilePermissions')) {
-      friendlyMessage = `Permission Denied: Your Google Service Account (${clientEmail}) does not have Editor access to folder "${folderId}". Please share the Google Drive folder with this email as Editor.`;
-      errorCode = 'FOLDER_PERMISSION_DENIED';
+        fields: 'id, name, mimeType, webViewLink, webContentLink',
+      });
+      if (fileMetadata.data.webViewLink) {
+        viewLink = fileMetadata.data.webViewLink;
+      }
+    } catch (metaError) {
+      // Non-blocking, viewLink fallback is already constructed
     }
 
-    res.statusCode = 500;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(
-      JSON.stringify({
-        error: friendlyMessage,
-        code: errorCode,
-        details: driveError?.response?.data || driveError?.message,
-        targetFolderId: folderId,
-        serviceAccountEmail: clientEmail,
-      })
-    );
+    const durationMs = Date.now() - startTime;
+
+    return res.status(200).json({
+      success: true,
+      viewLink: viewLink,
+      webViewLink: viewLink,
+      fileId: fileId,
+      fileName: driveResponse.data.name || finalFileName,
+      folderId: folderId,
+      durationMs: durationMs,
+    });
+  } catch (uncaughtError: any) {
+    console.error('Unhandled upload error in /api/upload:', uncaughtError);
+    return res.status(500).json({
+      success: false,
+      error: uncaughtError?.message || 'An unexpected internal server error occurred.',
+      code: 'UNHANDLED_EXCEPTION',
+      details: uncaughtError?.stack || uncaughtError?.toString(),
+    });
   }
 }
