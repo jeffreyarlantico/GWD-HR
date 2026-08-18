@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useHRIS } from '../../context/HRISContext';
-import { Shield, ShieldAlert, UserCheck, RotateCcw, CheckCircle2, LogOut } from 'lucide-react';
+import { Shield, ShieldAlert, UserCheck, LogOut } from 'lucide-react';
 import { DistrictLogo } from './DistrictLogo';
 
 interface HeaderProps {
@@ -13,17 +12,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onSearch }) => {
   const { role, setRole, userTitle, logout } = useAuth();
-  const { resetSystemData } = useHRIS();
   const [showRoleModal, setShowRoleModal] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [resetSuccessMessage, setResetSuccessMessage] = useState(false);
-
-  const handleReset = () => {
-    resetSystemData();
-    setShowResetConfirm(false);
-    setResetSuccessMessage(true);
-    setTimeout(() => setResetSuccessMessage(false), 3000);
-  };
 
   return (
     <header id="main-app-header" className="bg-slate-900/95 backdrop-blur-md text-white border-b border-slate-800 shadow-sm sticky top-0 z-30">
@@ -41,20 +30,9 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onSearc
           </div>
         </div>
 
-        {/* Right: Role Switcher & System Controls */}
+        {/* Right: Role Status & System Controls */}
         <div className="flex items-center space-x-3">
           
-          {/* System Reset Button */}
-          <button
-            id="btn-header-reset-data"
-            onClick={() => setShowResetConfirm(true)}
-            className="hidden md:flex items-center space-x-1.5 text-xs text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700/80 transition-all shadow-xs"
-            title="Reset dataset to Guimba West District defaults"
-          >
-            <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-            <span>Reset District Data</span>
-          </button>
-
           {/* Role Status Badge / Switch Account Button */}
           <button 
             id="user-role-badge"
@@ -168,43 +146,6 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onSearc
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Confirmation Modal for Resetting System Data */}
-      {showResetConfirm && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white text-slate-900 rounded-xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
-            <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
-              <RotateCcw className="w-5 h-5 text-amber-500" />
-              Reset Guimba West District Data
-            </h3>
-            <p className="text-sm text-slate-600 mt-2">
-              Are you sure you want to restore the system to default Guimba West District sample records? This will reload the 13 active schools, sample teacher profiles, special orders, and service credits.
-            </p>
-            <div className="mt-6 flex justify-end space-x-3">
-              <button
-                onClick={() => setShowResetConfirm(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleReset}
-                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg"
-              >
-                Yes, Reset Data
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Reset Notification Banner */}
-      {resetSuccessMessage && (
-        <div className="bg-emerald-600 text-white py-2 px-4 text-center text-xs font-semibold flex items-center justify-center space-x-2">
-          <CheckCircle2 className="w-4 h-4" />
-          <span>Guimba West District HRIS dataset restored to default sample records!</span>
         </div>
       )}
     </header>
