@@ -21,7 +21,6 @@ import {
 import { SpecialOrder } from '../../types';
 import { ConfirmDeleteSpecialOrderModal } from './ConfirmDeleteSpecialOrderModal';
 import { SpecialOrderDetailsModal } from './SpecialOrderDetailsModal';
-import { AppointmentDocumentUploader } from '../common/AppointmentDocumentUploader';
 
 export const ServiceCreditsView: React.FC = () => {
   const { 
@@ -729,13 +728,16 @@ export const ServiceCreditsView: React.FC = () => {
                 />
               </div>
 
-              {/* Google Drive / Document Uploader for Special Order Memo */}
-              <AppointmentDocumentUploader
-                documentUrl={soDocumentUrl}
-                onChange={setSoDocumentUrl}
-                positionName="Special Order"
-                label="Special Order Document / Memo (Google Drive)"
-              />
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">SO Document Reference (OneDrive Link)</label>
+                <input
+                  type="url"
+                  value={soDocumentUrl}
+                  onChange={(e) => setSoDocumentUrl(e.target.value)}
+                  placeholder="https://onedrive.live.com/view.aspx?resid=..."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
 
               {/* Assign Individual Teacher Credits */}
               <div className="pt-3 border-t border-slate-200">

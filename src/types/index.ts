@@ -33,9 +33,7 @@ export interface PromotionRecord {
   position: string;
   itemNumber: string;
   appointmentDate: string; // YYYY-MM-DD
-  appointmentPaperUrl?: string; // Google Drive / Cloud URL
-  driveFileId?: string; // Google Drive File ID
-  driveFileName?: string; // Original uploaded document filename
+  appointmentPaperUrl?: string; // OneDrive URL or link
   remarks?: string;
   createdAt: string;
 }
@@ -56,9 +54,7 @@ export interface SpecialOrder {
   soNumber: string; // e.g., SO-2026-001
   soDate: string; // YYYY-MM-DD
   title: string; // Title of Service Credit Activity
-  soDocumentUrl?: string; // Google Drive / Cloud URL
-  driveFileId?: string; // Google Drive File ID
-  driveFileName?: string; // Original uploaded document filename
+  soDocumentUrl?: string; // OneDrive URL
   createdAt: string;
   updatedAt: string;
 }
@@ -94,9 +90,7 @@ export interface LeaveRecord {
   dateTo: string; // YYYY-MM-DD
   numberOfDays: number;
   remarks?: string;
-  documentUrl?: string; // Google Drive / Cloud URL
-  driveFileId?: string; // Google Drive File ID
-  driveFileName?: string; // Original uploaded document filename
+  documentUrl?: string; // OneDrive URL
   createdAt: string;
 }
 
@@ -104,8 +98,6 @@ export interface Employee {
   id: string;
   // Personal Info
   profilePhotoUrl?: string;
-  photoDriveFileId?: string;
-  photoDriveFileName?: string;
   firstName: string;
   middleName?: string;
   lastName: string;
@@ -119,8 +111,6 @@ export interface Employee {
   dateOfLatestAppointment: string; // YYYY-MM-DD
   dateOfOriginalAppointment: string; // YYYY-MM-DD
   appointmentDocumentUrl?: string; // Uploaded appointment document/file for current position
-  appointmentDriveFileId?: string; // Google Drive File ID
-  appointmentDriveFileName?: string; // Google Drive Document Name
   schoolId: string;
   schoolName: string;
   status: EmployeeStatus;

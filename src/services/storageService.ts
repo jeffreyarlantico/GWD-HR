@@ -5,7 +5,6 @@
 
 import { INITIAL_EMPLOYEES, INITIAL_EARNED_CREDITS, INITIAL_LEAVE_RECORDS, INITIAL_PROMOTIONS, INITIAL_SCHOOL_ASSIGNMENTS, INITIAL_SCHOOLS, INITIAL_SPECIAL_ORDERS, INITIAL_USED_CREDITS } from '../data/initialData';
 import { Employee, DeletedEmployee, DeletedSchool, DeletedLeaveRecord, DeletedSpecialOrder, LeaveRecord, PromotionRecord, School, SchoolAssignmentRecord, ServiceCreditEarned, ServiceCreditUsed, SpecialOrder } from '../types';
-import { sanitizeDocumentForFirestore } from '../utils/imageCompressor';
 
 const STORAGE_KEYS = {
   EMPLOYEES: 'gw_hris_employees_v1',
@@ -87,13 +86,11 @@ export class StorageService {
       setItem(STORAGE_KEYS.EMPLOYEES, INITIAL_EMPLOYEES);
       return INITIAL_EMPLOYEES;
     }
-    // Clean any oversized base64 data URLs to protect memory and storage
-    return data.map(emp => sanitizeDocumentForFirestore(emp));
+    return data;
   }
 
   public static saveEmployees(employees: Employee[]): void {
-    const sanitized = employees.map(emp => sanitizeDocumentForFirestore(emp));
-    setItem(STORAGE_KEYS.EMPLOYEES, sanitized);
+    setItem(STORAGE_KEYS.EMPLOYEES, employees);
   }
 
   // Schools

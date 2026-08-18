@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useHRIS } from '../../context/HRISContext';
-import { Shield, ShieldAlert, UserCheck, RotateCcw, CheckCircle2, LogOut, Database, Cloud, RefreshCw } from 'lucide-react';
+import { Shield, ShieldAlert, UserCheck, RotateCcw, CheckCircle2, LogOut } from 'lucide-react';
 import { DistrictLogo } from './DistrictLogo';
 
 interface HeaderProps {
@@ -13,32 +13,16 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onSearch }) => {
   const { role, setRole, userTitle, logout } = useAuth();
-  const { resetSystemData, isFirestoreConnected, isLoadingCloudData, syncAllToFirestore, fetchFromFirestore } = useHRIS();
+  const { resetSystemData } = useHRIS();
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetSuccessMessage, setResetSuccessMessage] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncStatusNotice, setSyncStatusNotice] = useState('');
 
   const handleReset = () => {
     resetSystemData();
     setShowResetConfirm(false);
     setResetSuccessMessage(true);
     setTimeout(() => setResetSuccessMessage(false), 3000);
-  };
-
-  const handleManualSync = async () => {
-    setIsSyncing(true);
-    setSyncStatusNotice('');
-    try {
-      const res = await syncAllToFirestore();
-      setSyncStatusNotice(res.message);
-      setTimeout(() => setSyncStatusNotice(''), 4000);
-    } catch (err: any) {
-      setSyncStatusNotice(err.message || 'Sync error');
-    } finally {
-      setIsSyncing(false);
-    }
   };
 
   return (
@@ -57,33 +41,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onSearc
           </div>
         </div>
 
-        {/* Right: Cloud Status, Role Switcher & System Controls */}
-        <div className="flex items-center space-x-2 sm:space-x-3">
-
-          {/* Cloud Firestore Status Badge */}
-          <button
-            type="button"
-            onClick={handleManualSync}
-            disabled={isSyncing}
-            className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
-              isFirestoreConnected 
-                ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/30 hover:bg-emerald-900/50' 
-                : 'bg-amber-950/40 text-amber-300 border-amber-500/30'
-            }`}
-            title="Cloud Firestore Database status. Click to force sync all records."
-          >
-            <span className="relative flex h-2 w-2">
-              {isFirestoreConnected && (
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              )}
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${isFirestoreConnected ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
-            </span>
-            <Database className="w-3.5 h-3.5" />
-            <span className="text-[11px]">
-              {isSyncing ? 'Syncing Cloud...' : isFirestoreConnected ? 'Cloud Online' : 'Connecting Cloud...'}
-            </span>
-            <RefreshCw className={`w-3 h-3 text-slate-400 ${isSyncing ? 'animate-spin' : ''}`} />
-          </button>
+        {/* Right: Role Switcher & System Controls */}
+        <div className="flex items-center space-x-3">
           
           {/* System Reset Button */}
           <button

@@ -1,42 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useHRIS } from '../../context/HRISContext';
-import { Shield, Lock, Building2, CheckCircle2, Cloud, FileText, Info, Database, RefreshCw, UploadCloud, DownloadCloud, AlertCircle } from 'lucide-react';
-import firebaseConfig from '../../../firebase-applet-config.json';
+import { Shield, Lock, FileSpreadsheet, Building2, CheckCircle2, Cloud, FileText, Info } from 'lucide-react';
 
 export const SystemInfoView: React.FC = () => {
   const { role } = useAuth();
-  const { isFirestoreConnected, syncAllToFirestore, fetchFromFirestore, employees, schools, specialOrders, leaveRecords } = useHRIS();
-  
-  const [syncing, setSyncing] = useState(false);
-  const [fetching, setFetching] = useState(false);
-  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-
-  const handleSyncToFirestore = async () => {
-    setSyncing(true);
-    setMessage(null);
-    try {
-      const res = await syncAllToFirestore();
-      setMessage({ text: res.message, type: res.success ? 'success' : 'error' });
-    } catch (err: any) {
-      setMessage({ text: err.message || 'Failed to sync', type: 'error' });
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const handleFetchFromFirestore = async () => {
-    setFetching(true);
-    setMessage(null);
-    try {
-      const res = await fetchFromFirestore();
-      setMessage({ text: res.message, type: res.success ? 'success' : 'error' });
-    } catch (err: any) {
-      setMessage({ text: err.message || 'Failed to fetch', type: 'error' });
-    } finally {
-      setFetching(false);
-    }
-  };
 
   return (
     <div id="system-info-view" className="space-y-6 pb-16">
@@ -51,76 +18,8 @@ export const SystemInfoView: React.FC = () => {
           Guimba West District HRIS Documentation & Security
         </h1>
         <p className="text-xs text-slate-500 mt-0.5">
-          DepEd Schools Division of Nueva Ecija • Powered by Firebase Cloud Firestore & Google Drive
+          DepEd Schools Division of Nueva Ecija • Strictly scoped for Guimba West District
         </p>
-      </div>
-
-      {/* Firebase Cloud Firestore Card */}
-      <div className="bg-gradient-to-r from-amber-50 to-orange-50 p-6 rounded-xl border border-amber-200 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center space-x-3">
-            <div className="p-3 bg-amber-600 text-white rounded-lg shadow-sm">
-              <Database className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h2 className="text-base font-bold text-slate-900">Firebase Cloud Firestore</h2>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
-                  Active & Connected
-                </span>
-              </div>
-              <p className="text-xs text-slate-600 mt-0.5">
-                Real-time enterprise cloud persistence with zero-trust Attribute-Based Access Control (ABAC) rules.
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <button
-              id="sync-to-firestore-btn"
-              onClick={handleSyncToFirestore}
-              disabled={syncing}
-              className="inline-flex items-center space-x-1.5 px-3 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer"
-            >
-              <UploadCloud className={`w-4 h-4 ${syncing ? 'animate-bounce' : ''}`} />
-              <span>{syncing ? 'Syncing...' : 'Sync Dataset to Cloud'}</span>
-            </button>
-            <button
-              id="fetch-from-firestore-btn"
-              onClick={handleFetchFromFirestore}
-              disabled={fetching}
-              className="inline-flex items-center space-x-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer"
-            >
-              <DownloadCloud className={`w-4 h-4 ${fetching ? 'animate-bounce' : ''}`} />
-              <span>{fetching ? 'Loading...' : 'Pull from Cloud'}</span>
-            </button>
-          </div>
-        </div>
-
-        {message && (
-          <div className={`p-3 rounded-lg text-xs font-medium flex items-center space-x-2 ${
-            message.type === 'success' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300'
-          }`}>
-            {message.type === 'success' ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 flex-shrink-0" />}
-            <span>{message.text}</span>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs bg-white/80 p-3 rounded-lg border border-amber-200/60">
-          <div>
-            <span className="text-slate-500 block">Project ID:</span>
-            <span className="font-mono font-bold text-slate-800">{firebaseConfig.projectId}</span>
-          </div>
-          <div>
-            <span className="text-slate-500 block">Database Instance:</span>
-            <span className="font-mono font-bold text-slate-800 truncate block" title={firebaseConfig.firestoreDatabaseId}>{firebaseConfig.firestoreDatabaseId}</span>
-          </div>
-          <div>
-            <span className="text-slate-500 block">Security Rules:</span>
-            <span className="font-semibold text-emerald-700">Rules Version 2 (Hardened ABAC)</span>
-          </div>
-        </div>
       </div>
 
       {/* Grid: Key Policies */}

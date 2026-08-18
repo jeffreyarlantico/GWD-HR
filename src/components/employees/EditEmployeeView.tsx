@@ -38,8 +38,6 @@ export const EditEmployeeView: React.FC<EditEmployeeViewProps> = ({
   const [extensionName, setExtensionName] = useState(emp.extensionName || '');
   const [birthday, setBirthday] = useState(emp.birthday || '');
   const [profilePhotoUrl, setProfilePhotoUrl] = useState(emp.profilePhotoUrl || '');
-  const [photoDriveFileId, setPhotoDriveFileId] = useState(emp.photoDriveFileId || '');
-  const [photoDriveFileName, setPhotoDriveFileName] = useState(emp.photoDriveFileName || '');
 
   const [employeeNumber, setEmployeeNumber] = useState(emp.employeeNumber || '');
   const [currentPosition, setCurrentPosition] = useState(emp.currentPosition || '');
@@ -81,8 +79,6 @@ export const EditEmployeeView: React.FC<EditEmployeeViewProps> = ({
       extensionName: extensionName.trim(),
       birthday,
       profilePhotoUrl: profilePhotoUrl.trim(),
-      photoDriveFileId: photoDriveFileId.trim(),
-      photoDriveFileName: photoDriveFileName.trim(),
 
       employeeNumber: employeeNumber.trim(),
       currentPosition: currentPosition.trim(),
@@ -206,15 +202,8 @@ export const EditEmployeeView: React.FC<EditEmployeeViewProps> = ({
               <div className="md:col-span-3 pt-2">
                 <ProfilePhotoUploader
                   photoUrl={profilePhotoUrl}
-                  photoDriveFileId={photoDriveFileId}
-                  photoDriveFileName={photoDriveFileName}
-                  onChange={(url, driveFileId, driveFileName) => {
-                    setProfilePhotoUrl(url);
-                    setPhotoDriveFileId(driveFileId || '');
-                    setPhotoDriveFileName(driveFileName || '');
-                  }}
+                  onChange={setProfilePhotoUrl}
                   employeeName={`${firstName} ${lastName}`}
-                  employeeNumber={employeeNumber}
                 />
               </div>
           </div>
