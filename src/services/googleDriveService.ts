@@ -13,11 +13,19 @@ import firebaseConfig from '../../firebase-applet-config.json';
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 
-// Configure Google Auth Provider with Google Drive scopes
-const provider = new GoogleAuthProvider();
-provider.addScope('https://www.googleapis.com/auth/drive');
-provider.addScope('https://www.googleapis.com/auth/drive.file');
-provider.addScope('https://www.googleapis.com/auth/drive.metadata.readonly');
+// Helper to create Google Drive Auth Provider with full required Drive scopes and consent prompt
+export const createGoogleDriveProvider = () => {
+  const provider = new GoogleAuthProvider();
+  provider.addScope('https://www.googleapis.com/auth/drive');
+  provider.addScope('https://www.googleapis.com/auth/drive.file');
+  provider.addScope('https://www.googleapis.com/auth/drive.readonly');
+  provider.addScope('https://www.googleapis.com/auth/drive.metadata.readonly');
+  provider.setCustomParameters({
+    prompt: 'consent select_account',
+    access_type: 'offline'
+  });
+  return provider;
+};
 
 // In-memory token storage (DO NOT store in localStorage/sessionStorage per security guidelines)
 let cachedAccessToken: string | null = null;
@@ -60,15 +68,32 @@ export const initDriveAuth = (
 export const signInWithGoogleDrive = async (): Promise<{ user: User; accessToken: string } | null> => {
   try {
     isSigningIn = true;
+    const provider = createGoogleDriveProvider();
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (!credential?.accessToken) {
-      throw new Error('Failed to obtain Google Drive access token');
+      throw new Error('Failed to obtain Google Drive access token from Google Sign-In.');
     }
 
     cachedAccessToken = credential.accessToken;
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
+    const errorCode = error?.code || '';
+    const errorMessage = error?.message || '';
+    
+    // Gracefully handle user cancellation / closed popup without treating it as an application crash
+    if (
+      errorCode === 'auth/popup-closed-by-user' ||
+      errorCode === 'auth/cancelled-popup-request' ||
+      errorCode === 'auth/popup-blocked' ||
+      errorMessage.includes('popup-closed-by-user') ||
+      errorMessage.includes('cancelled-popup-request') ||
+      errorMessage.includes('popup-closed')
+    ) {
+      console.info('Google sign-in popup was closed or dismissed by the user.');
+      return null;
+    }
+
     console.error('Google Drive sign-in error:', error);
     throw error;
   } finally {
@@ -89,6 +114,25 @@ export const logoutGoogleDrive = async () => {
   cachedAccessToken = null;
 };
 
+// Helper to inspect Drive API response and handle scope/expiry issues
+const handleDriveResponseError = async (response: Response): Promise<never> => {
+  const errorData = await response.json().catch(() => ({}));
+  const rawMsg = errorData?.error?.message || `${response.status} ${response.statusText}`;
+  
+  if (
+    response.status === 401 || 
+    response.status === 403 || 
+    rawMsg.toLowerCase().includes('insufficient') ||
+    rawMsg.toLowerCase().includes('permission') ||
+    rawMsg.toLowerCase().includes('credentials')
+  ) {
+    cachedAccessToken = null;
+    throw new Error('Google Drive access requires permission approval or your session has expired. Please connect or re-authorize Google Drive.');
+  }
+
+  throw new Error(`Google Drive API error: ${rawMsg}`);
+};
+
 // ==========================================
 // GOOGLE DRIVE API V3 METHODS
 // ==========================================
@@ -106,7 +150,7 @@ export const listGoogleDriveFiles = async (options: {
 }): Promise<{ files: DriveFileItem[]; nextPageToken?: string }> => {
   const token = await getDriveAccessToken();
   if (!token) {
-    throw new Error('Not authenticated with Google Drive. Please sign in first.');
+    throw new Error('Not authenticated with Google Drive. Please connect Google Drive first.');
   }
 
   const queryParts: string[] = ['trashed = false'];
@@ -151,8 +195,7 @@ export const listGoogleDriveFiles = async (options: {
   });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData?.error?.message || `Google Drive API error: ${response.status} ${response.statusText}`);
+    return await handleDriveResponseError(response);
   }
 
   const data = await response.json();
@@ -165,7 +208,7 @@ export const listGoogleDriveFiles = async (options: {
 export const createDriveFolder = async (folderName: string, parentFolderId?: string): Promise<DriveFileItem> => {
   const token = await getDriveAccessToken();
   if (!token) {
-    throw new Error('Not authenticated with Google Drive.');
+    throw new Error('Not authenticated with Google Drive. Please connect Google Drive first.');
   }
 
   const metadata: { name: string; mimeType: string; parents?: string[] } = {
@@ -187,8 +230,7 @@ export const createDriveFolder = async (folderName: string, parentFolderId?: str
   });
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err?.error?.message || 'Failed to create folder in Google Drive');
+    return await handleDriveResponseError(response);
   }
 
   return await response.json();
@@ -202,7 +244,7 @@ export const uploadFileToDrive = async (
 ): Promise<DriveFileItem> => {
   const token = await getDriveAccessToken();
   if (!token) {
-    throw new Error('Not authenticated with Google Drive.');
+    throw new Error('Not authenticated with Google Drive. Please connect Google Drive first.');
   }
 
   const metadata: { name: string; parents?: string[]; mimeType?: string } = {
@@ -234,8 +276,7 @@ export const uploadFileToDrive = async (
   });
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err?.error?.message || 'Failed to upload file to Google Drive');
+    return await handleDriveResponseError(response);
   }
 
   return await response.json();
@@ -244,7 +285,7 @@ export const uploadFileToDrive = async (
 export const deleteDriveFile = async (fileId: string): Promise<boolean> => {
   const token = await getDriveAccessToken();
   if (!token) {
-    throw new Error('Not authenticated with Google Drive.');
+    throw new Error('Not authenticated with Google Drive. Please connect Google Drive first.');
   }
 
   const response = await fetch(`${DRIVE_API_BASE}/files/${fileId}`, {
@@ -255,12 +296,24 @@ export const deleteDriveFile = async (fileId: string): Promise<boolean> => {
   });
 
   if (!response.ok && response.status !== 204) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err?.error?.message || 'Failed to delete file from Google Drive');
+    return await handleDriveResponseError(response);
   }
 
   return true;
 };
+
+export const HRIS_ROOT_FOLDER_NAME = 'DepEd Guimba West HRIS Documents';
+
+export const STANDARD_HRIS_SUBFOLDERS = [
+  'Appointment Papers',
+  'Special Orders',
+  'Promotion Documents',
+  'Leave Records & Medical Certificates',
+  'Profile Photos',
+  'Certificates & Service Records',
+  'Cloud Backups',
+  'General Documents'
+] as const;
 
 export const getOrCreateHRISFolder = async (folderName: string, parentFolderId?: string): Promise<string> => {
   const { files } = await listGoogleDriveFiles({
@@ -269,7 +322,7 @@ export const getOrCreateHRISFolder = async (folderName: string, parentFolderId?:
     mimeTypeFilter: 'folder'
   });
 
-  const existing = files.find(f => f.name === folderName && f.mimeType === 'application/vnd.google-apps.folder');
+  const existing = files.find(f => f.name.toLowerCase() === folderName.toLowerCase() && f.mimeType === 'application/vnd.google-apps.folder');
   if (existing) {
     return existing.id;
   }
@@ -278,8 +331,28 @@ export const getOrCreateHRISFolder = async (folderName: string, parentFolderId?:
   return created.id;
 };
 
+export const getOrCreateHRISRootFolder = async (): Promise<{ id: string; name: string }> => {
+  const rootFolderId = await getOrCreateHRISFolder(HRIS_ROOT_FOLDER_NAME);
+  return { id: rootFolderId, name: HRIS_ROOT_FOLDER_NAME };
+};
+
+export const initializeHRISFolderStructure = async (): Promise<string> => {
+  const rootFolderId = await getOrCreateHRISFolder(HRIS_ROOT_FOLDER_NAME);
+  
+  // Ensure the primary subdirectories exist
+  for (const subfolder of STANDARD_HRIS_SUBFOLDERS) {
+    try {
+      await getOrCreateHRISFolder(subfolder, rootFolderId);
+    } catch (e) {
+      console.warn(`Could not verify subfolder ${subfolder}:`, e);
+    }
+  }
+
+  return rootFolderId;
+};
+
 export const getOrCreateHRISBackupFolder = async (): Promise<string> => {
-  const rootFolderId = await getOrCreateHRISFolder('DepEd Guimba West HRIS Documents');
+  const rootFolderId = await getOrCreateHRISFolder(HRIS_ROOT_FOLDER_NAME);
   return await getOrCreateHRISFolder('Cloud Backups', rootFolderId);
 };
 
@@ -289,7 +362,7 @@ export const uploadHRDocumentToDrive = async (
   category: 'Appointment' | 'SpecialOrder' | 'Promotion' | 'Leave' | 'Certificate' | 'ProfilePhoto',
   identifier?: string
 ): Promise<DriveFileItem> => {
-  const rootFolderId = await getOrCreateHRISFolder('DepEd Guimba West HRIS Documents');
+  const rootFolderId = await getOrCreateHRISFolder(HRIS_ROOT_FOLDER_NAME);
   
   let subfolderName = 'General Documents';
   if (category === 'Appointment') subfolderName = 'Appointment Papers';
@@ -327,7 +400,7 @@ export const exportHRISToDriveBackup = async (
 export const downloadDriveFileContent = async (fileId: string): Promise<string> => {
   const token = await getDriveAccessToken();
   if (!token) {
-    throw new Error('Not authenticated with Google Drive.');
+    throw new Error('Not authenticated with Google Drive. Please connect Google Drive first.');
   }
 
   const response = await fetch(`${DRIVE_API_BASE}/files/${fileId}?alt=media`, {
@@ -337,7 +410,7 @@ export const downloadDriveFileContent = async (fileId: string): Promise<string> 
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to download file from Google Drive: ${response.statusText}`);
+    return await handleDriveResponseError(response);
   }
 
   return await response.text();

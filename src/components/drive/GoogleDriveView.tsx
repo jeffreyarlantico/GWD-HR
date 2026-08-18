@@ -10,7 +10,9 @@ import {
   exportHRISToDriveBackup,
   downloadDriveFileContent,
   DriveFileItem,
-  getDriveAccessToken
+  getDriveAccessToken,
+  initializeHRISFolderStructure,
+  HRIS_ROOT_FOLDER_NAME
 } from '../../services/googleDriveService';
 import { useHRIS } from '../../context/HRISContext';
 import { useAuth } from '../../context/AuthContext';
@@ -72,10 +74,11 @@ export const GoogleDriveView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'ALL' | 'FOLDERS' | 'BACKUPS' | 'PDFS' | 'DOCS'>('ALL');
   
-  // Navigation State
+  // Scoped HRIS Root Navigation State
+  const [hrisRootFolderId, setHrisRootFolderId] = useState<string | null>(null);
   const [currentFolderId, setCurrentFolderId] = useState<string | undefined>(undefined);
   const [folderHistory, setFolderHistory] = useState<Array<{ id?: string; name: string }>>([
-    { id: undefined, name: 'My Drive' }
+    { id: undefined, name: 'DepEd HRIS Documents' }
   ]);
 
   // Upload & Folder Modal States
@@ -102,6 +105,74 @@ export const GoogleDriveView: React.FC = () => {
   // Copy feedback state
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Fetch files in a specific folder (defaults to current folder or HRIS root)
+  const fetchFiles = async (folderId?: string) => {
+    if (!hasToken) return;
+    const targetFolderId = folderId || currentFolderId || hrisRootFolderId;
+    if (!targetFolderId) return;
+
+    setIsLoadingFiles(true);
+    setFileError('');
+    try {
+      const result = await listGoogleDriveFiles({
+        folderId: targetFolderId,
+        pageSize: 100
+      });
+      setFiles(result.files);
+    } catch (err: any) {
+      const msg = err.message || '';
+      if (
+        msg.includes('insufficient') || 
+        msg.includes('permission') || 
+        msg.includes('expired') || 
+        msg.includes('re-authorize') || 
+        msg.includes('authenticated')
+      ) {
+        setHasToken(false);
+        setFileError('Google Drive session expired or requires permission approval. Click below to authorize.');
+      } else {
+        setFileError(msg || 'Failed to load HRIS folder from Google Drive');
+      }
+    } finally {
+      setIsLoadingFiles(false);
+    }
+  };
+
+  // Initialize and isolate workspace strictly to DepEd Guimba West HRIS Documents
+  const initHRISDrive = async () => {
+    setIsLoadingFiles(true);
+    setFileError('');
+    try {
+      const rootId = await initializeHRISFolderStructure();
+      setHrisRootFolderId(rootId);
+      setCurrentFolderId(rootId);
+      setFolderHistory([{ id: rootId, name: 'DepEd HRIS Documents' }]);
+      
+      const result = await listGoogleDriveFiles({
+        folderId: rootId,
+        pageSize: 100
+      });
+      setFiles(result.files);
+    } catch (err: any) {
+      console.warn('Error initializing HRIS Drive workspace:', err);
+      const msg = err.message || '';
+      if (
+        msg.includes('insufficient') || 
+        msg.includes('permission') || 
+        msg.includes('expired') || 
+        msg.includes('re-authorize') || 
+        msg.includes('authenticated')
+      ) {
+        setHasToken(false);
+        setFileError('Google Drive session expired or requires permission approval. Click below to authorize.');
+      } else {
+        setFileError(msg || 'Failed to load HRIS documents folder from Google Drive');
+      }
+    } finally {
+      setIsLoadingFiles(false);
+    }
+  };
+
   // Initialize Drive Auth listener
   useEffect(() => {
     const unsubscribe = initDriveAuth(
@@ -123,30 +194,15 @@ export const GoogleDriveView: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // Fetch files when token or current folder changes
-  const fetchFiles = async (folderId = currentFolderId) => {
-    if (!hasToken) return;
-    setIsLoadingFiles(true);
-    setFileError('');
-    try {
-      const result = await listGoogleDriveFiles({
-        folderId,
-        pageSize: 100
-      });
-      setFiles(result.files);
-    } catch (err: any) {
-      console.error('Failed to list files:', err);
-      setFileError(err.message || 'Failed to load files from Google Drive');
-    } finally {
-      setIsLoadingFiles(false);
-    }
-  };
-
   useEffect(() => {
     if (hasToken) {
-      fetchFiles(currentFolderId);
+      if (!hrisRootFolderId) {
+        initHRISDrive();
+      } else if (currentFolderId) {
+        fetchFiles(currentFolderId);
+      }
     }
-  }, [hasToken, currentFolderId]);
+  }, [hasToken]);
 
   // Handle Google Drive Sign-In
   const handleSignIn = async () => {
@@ -157,10 +213,16 @@ export const GoogleDriveView: React.FC = () => {
       if (result) {
         setCurrentUser(result.user);
         setHasToken(true);
+        setAuthError('');
+        setFileError('');
+        await initHRISDrive();
       }
     } catch (err: any) {
-      console.error('Google Sign-In failed:', err);
-      setAuthError(err.message || 'Failed to sign in with Google Drive. Please verify popup permissions.');
+      const msg = err.message || '';
+      if (!msg.includes('popup') && !msg.includes('closed') && !msg.includes('cancelled')) {
+        console.warn('Google Sign-In issue:', err);
+        setAuthError(msg || 'Failed to sign in with Google Drive. Please verify popup permissions.');
+      }
     } finally {
       setIsAuthenticating(false);
     }
@@ -172,7 +234,8 @@ export const GoogleDriveView: React.FC = () => {
     setCurrentUser(null);
     setHasToken(false);
     setFiles([]);
-    setFolderHistory([{ id: undefined, name: 'My Drive' }]);
+    setHrisRootFolderId(null);
+    setFolderHistory([{ id: undefined, name: 'DepEd HRIS Documents' }]);
     setCurrentFolderId(undefined);
   };
 
@@ -180,24 +243,28 @@ export const GoogleDriveView: React.FC = () => {
   const handleNavigateToFolder = (folderId: string, folderName: string) => {
     setCurrentFolderId(folderId);
     setFolderHistory(prev => [...prev, { id: folderId, name: folderName }]);
+    fetchFiles(folderId);
   };
 
   const handleNavigateToBreadcrumb = (index: number) => {
     const target = folderHistory[index];
+    if (!target) return;
     setFolderHistory(prev => prev.slice(0, index + 1));
     setCurrentFolderId(target.id);
+    fetchFiles(target.id);
   };
 
   // Create Folder
   const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFolderName.trim()) return;
+    const parentId = currentFolderId || hrisRootFolderId || undefined;
     setIsCreatingFolder(true);
     try {
-      await createDriveFolder(newFolderName.trim(), currentFolderId);
+      await createDriveFolder(newFolderName.trim(), parentId);
       setShowNewFolderModal(false);
       setNewFolderName('');
-      await fetchFiles();
+      await fetchFiles(parentId);
     } catch (err: any) {
       alert(err.message || 'Error creating folder');
     } finally {
@@ -209,6 +276,7 @@ export const GoogleDriveView: React.FC = () => {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
     if (!fileList || fileList.length === 0) return;
+    const targetFolderId = currentFolderId || hrisRootFolderId || undefined;
 
     setIsUploading(true);
     setUploadSuccess('');
@@ -217,11 +285,11 @@ export const GoogleDriveView: React.FC = () => {
     try {
       for (let i = 0; i < fileList.length; i++) {
         const file = fileList[i];
-        await uploadFileToDrive(file, file.name, currentFolderId, file.type);
+        await uploadFileToDrive(file, file.name, targetFolderId, file.type);
       }
       setUploadSuccess(`Successfully uploaded ${fileList.length} file(s) to Google Drive.`);
       setTimeout(() => setUploadSuccess(''), 4000);
-      await fetchFiles();
+      await fetchFiles(targetFolderId);
     } catch (err: any) {
       setUploadError(err.message || 'Error uploading file(s)');
     } finally {
@@ -563,9 +631,15 @@ export const GoogleDriveView: React.FC = () => {
             <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm">Google Drive Explorer</h3>
-                  <p className="text-xs text-slate-500">
-                    Browse files and manage attachments in your connected Google Drive storage
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-slate-900 text-sm">HRIS Documents Drive</h3>
+                    <span className="bg-emerald-50 text-emerald-700 text-[10px] px-2 py-0.5 rounded-full border border-emerald-200 font-bold flex items-center gap-1">
+                      <Lock className="w-2.5 h-2.5" />
+                      HRIS Storage Isolated
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Scoped strictly to DepEd Guimba West HRIS Documents. Personal Drive folders are hidden.
                   </p>
                 </div>
 
@@ -631,7 +705,7 @@ export const GoogleDriveView: React.FC = () => {
 
               {/* Breadcrumb Navigation */}
               <div className="flex items-center flex-wrap gap-1.5 text-xs bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 overflow-x-auto">
-                <span className="text-slate-400 font-medium">Path:</span>
+                <span className="text-slate-400 font-medium">Repository:</span>
                 {folderHistory.map((item, idx) => (
                   <React.Fragment key={idx}>
                     {idx > 0 && <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
@@ -642,7 +716,7 @@ export const GoogleDriveView: React.FC = () => {
                         idx === folderHistory.length - 1 ? 'text-blue-700 font-bold' : 'text-slate-600'
                       }`}
                     >
-                      {idx === 0 ? <Home className="w-3.5 h-3.5" /> : <Folder className="w-3.5 h-3.5" />}
+                      {idx === 0 ? <Cloud className="w-3.5 h-3.5 text-blue-600" /> : <Folder className="w-3.5 h-3.5 text-amber-500" />}
                       <span>{item.name}</span>
                     </button>
                   </React.Fragment>
@@ -696,16 +770,25 @@ export const GoogleDriveView: React.FC = () => {
                 <p className="text-xs text-slate-500 font-medium">Fetching Google Drive items...</p>
               </div>
             ) : fileError ? (
-              <div className="p-8 text-center space-y-2">
+              <div className="p-8 text-center space-y-3">
                 <AlertCircle className="w-8 h-8 text-rose-500 mx-auto" />
-                <p className="text-xs text-rose-700 font-medium">{fileError}</p>
-                <button
-                  type="button"
-                  onClick={() => fetchFiles()}
-                  className="px-3 py-1.5 bg-slate-100 text-xs font-bold text-slate-700 rounded-lg hover:bg-slate-200 transition"
-                >
-                  Retry
-                </button>
+                <p className="text-xs text-rose-700 font-medium max-w-md mx-auto">{fileError}</p>
+                <div className="flex items-center justify-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleSignIn}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-xs font-bold text-white rounded-xl shadow-sm transition cursor-pointer"
+                  >
+                    Authorize Google Drive
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fetchFiles()}
+                    className="px-3.5 py-2 bg-slate-100 text-xs font-bold text-slate-700 rounded-xl hover:bg-slate-200 transition cursor-pointer"
+                  >
+                    Retry
+                  </button>
+                </div>
               </div>
             ) : filteredFiles.length === 0 ? (
               <div className="p-12 text-center space-y-2">

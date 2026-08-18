@@ -70,7 +70,10 @@ export const GoogleDriveDocumentUploader: React.FC<GoogleDriveDocumentUploaderPr
         setTimeout(() => setSuccessNotice(''), 3000);
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to authenticate with Google Drive.');
+      const msg = err.message || '';
+      if (!msg.includes('popup') && !msg.includes('closed') && !msg.includes('cancelled')) {
+        setErrorMessage(msg || 'Failed to authenticate with Google Drive.');
+      }
     } finally {
       setIsConnectingDrive(false);
     }
@@ -96,7 +99,8 @@ export const GoogleDriveDocumentUploader: React.FC<GoogleDriveDocumentUploaderPr
         const authRes = await signInWithGoogleDrive();
         token = authRes?.accessToken || null;
         if (!token) {
-          throw new Error('Google Drive authorization required to upload documents.');
+          setIsUploading(false);
+          return;
         }
         setIsDriveConnected(true);
       }
@@ -116,12 +120,10 @@ export const GoogleDriveDocumentUploader: React.FC<GoogleDriveDocumentUploaderPr
       setSuccessNotice(`Document "${file.name}" uploaded to Google Drive!`);
       setTimeout(() => setSuccessNotice(''), 4000);
     } catch (err: any) {
-      console.error('Drive upload failed:', err);
-      // Fallback: If Google Drive popup was blocked or user declined, allow data URL temporary preview with clear warning
-      if (err.message?.includes('popup') || err.message?.includes('closed')) {
-        setErrorMessage('Google Drive sign-in popup was closed. Please enable popups or try again.');
-      } else {
-        setErrorMessage(`Drive Upload Error: ${err.message || 'Could not upload file to Google Drive.'}`);
+      const msg = err.message || '';
+      if (!msg.includes('popup') && !msg.includes('closed') && !msg.includes('cancelled')) {
+        console.warn('Drive upload issue:', err);
+        setErrorMessage(`Drive Upload Error: ${msg || 'Could not upload file to Google Drive.'}`);
       }
     } finally {
       setIsUploading(false);

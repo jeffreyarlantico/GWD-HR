@@ -80,17 +80,20 @@ export const AppointmentDocumentUploader: React.FC<AppointmentDocumentUploaderPr
         }
       }
     } catch (err: any) {
-      console.warn('Drive upload error:', err);
-      if (file.type.startsWith('image/')) {
-        try {
-          const compressed = await compressImageFileToDataUrl(file, 800, 800, 0.75);
-          onChange(compressed, undefined, file.name);
-          setUploadError(`Could not upload to Google Drive (${err.message || 'auth error'}). Saved compressed image locally.`);
-        } catch {
-          setUploadError(`Drive upload failed: ${err.message || 'Error'}`);
+      const msg = err.message || '';
+      if (!msg.includes('popup') && !msg.includes('closed') && !msg.includes('cancelled')) {
+        console.warn('Drive upload error:', err);
+        if (file.type.startsWith('image/')) {
+          try {
+            const compressed = await compressImageFileToDataUrl(file, 800, 800, 0.75);
+            onChange(compressed, undefined, file.name);
+            setUploadError(`Could not upload to Google Drive (${msg || 'auth required'}). Saved compressed image locally.`);
+          } catch {
+            setUploadError(`Drive upload failed: ${msg || 'Error'}`);
+          }
+        } else {
+          setUploadError(`Could not upload to Google Drive (${msg || 'auth required'}). Please paste a direct Drive or OneDrive link.`);
         }
-      } else {
-        setUploadError(`Could not upload to Google Drive (${err.message || 'auth error'}). Please paste a direct Drive or OneDrive link.`);
       }
     } finally {
       setIsUploading(false);

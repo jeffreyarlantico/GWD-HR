@@ -124,7 +124,9 @@ export const ProfilePhotoUploader: React.FC<ProfilePhotoUploaderProps> = ({
     try {
       const authResult = await signInWithGoogleDrive();
       if (!authResult?.accessToken) {
-        throw new Error('Could not authorize with Google Drive.');
+        // User closed or dismissed Google Sign-In popup
+        setIsUploadingToDrive(false);
+        return;
       }
 
       // If we have the original file from current session, upload it directly
@@ -153,8 +155,11 @@ export const ProfilePhotoUploader: React.FC<ProfilePhotoUploaderProps> = ({
         setUploadNotice('Google Drive connected! Select a photo to upload directly.');
       }
     } catch (err: any) {
-      console.error('Save to Drive error:', err);
-      setDriveError(err.message || 'Failed to connect to Google Drive');
+      const msg = err.message || '';
+      if (!msg.includes('popup') && !msg.includes('closed') && !msg.includes('cancelled')) {
+        console.warn('Save to Drive notice:', err);
+        setDriveError(msg || 'Failed to connect to Google Drive');
+      }
     } finally {
       setIsUploadingToDrive(false);
     }
