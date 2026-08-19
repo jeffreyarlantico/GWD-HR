@@ -155,8 +155,8 @@ export const DeletedArchiveView: React.FC<DeletedArchiveViewProps> = ({
   }, [deletedSpecialOrders, searchTerm]);
 
   // Actions
-  const handleRestoreEmp = (id: string) => {
-    const res = restoreEmployee(id);
+  const handleRestoreEmp = async (id: string) => {
+    const res = await restoreEmployee(id);
     if (res.success) {
       showToast('success', res.message);
     } else {
@@ -164,15 +164,15 @@ export const DeletedArchiveView: React.FC<DeletedArchiveViewProps> = ({
     }
   };
 
-  const handlePermanentDeleteEmp = () => {
+  const handlePermanentDeleteEmp = async () => {
     if (!confirmDeleteEmp) return;
-    const res = permanentlyDeleteEmployee(confirmDeleteEmp.id);
+    const res = await permanentlyDeleteEmployee(confirmDeleteEmp.id);
     setConfirmDeleteEmp(null);
     showToast('success', res.message);
   };
 
-  const handleRestoreSch = (id: string) => {
-    const res = restoreSchool(id);
+  const handleRestoreSch = async (id: string) => {
+    const res = await restoreSchool(id);
     if (res.success) {
       showToast('success', res.message);
     } else {
@@ -180,15 +180,15 @@ export const DeletedArchiveView: React.FC<DeletedArchiveViewProps> = ({
     }
   };
 
-  const handlePermanentDeleteSch = () => {
+  const handlePermanentDeleteSch = async () => {
     if (!confirmDeleteSch) return;
-    const res = permanentlyDeleteSchool(confirmDeleteSch.id);
+    const res = await permanentlyDeleteSchool(confirmDeleteSch.id);
     setConfirmDeleteSch(null);
     showToast('success', res.message);
   };
 
-  const handleRestoreLeave = (id: string) => {
-    const res = restoreLeaveRecord(id);
+  const handleRestoreLeave = async (id: string) => {
+    const res = await restoreLeaveRecord(id);
     if (res.success) {
       showToast('success', res.message);
     } else {
@@ -196,15 +196,15 @@ export const DeletedArchiveView: React.FC<DeletedArchiveViewProps> = ({
     }
   };
 
-  const handlePermanentDeleteLeave = () => {
+  const handlePermanentDeleteLeave = async () => {
     if (!confirmDeleteLeave) return;
-    const res = permanentlyDeleteLeaveRecord(confirmDeleteLeave.id);
+    const res = await permanentlyDeleteLeaveRecord(confirmDeleteLeave.id);
     setConfirmDeleteLeave(null);
     showToast('success', res.message);
   };
 
-  const handleRestoreSO = (id: string) => {
-    const res = restoreSpecialOrder(id);
+  const handleRestoreSO = async (id: string) => {
+    const res = await restoreSpecialOrder(id);
     if (res.success) {
       showToast('success', res.message);
     } else {
@@ -212,17 +212,17 @@ export const DeletedArchiveView: React.FC<DeletedArchiveViewProps> = ({
     }
   };
 
-  const handlePermanentDeleteSO = () => {
+  const handlePermanentDeleteSO = async () => {
     if (!confirmDeleteSO) return;
-    const res = permanentlyDeleteSpecialOrder(confirmDeleteSO.id);
+    const res = await permanentlyDeleteSpecialOrder(confirmDeleteSO.id);
     setConfirmDeleteSO(null);
     showToast('success', res.message);
   };
 
-  const handleAddSchoolSubmit = (e: React.FormEvent) => {
+  const handleAddSchoolSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAddSchoolError('');
-    const res = addSchool(newSchoolName);
+    const res = await addSchool(newSchoolName);
     if (!res.success) {
       setAddSchoolError(res.message);
     } else {

@@ -62,10 +62,10 @@ export const SchoolsView: React.FC<SchoolsViewProps> = ({
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const handleAddSubmit = (e: React.FormEvent) => {
+  const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
-    const res = addSchool(newSchoolName);
+    const res = await addSchool(newSchoolName);
     if (!res.success) {
       setErrorMessage(res.message);
     } else {
@@ -75,11 +75,11 @@ export const SchoolsView: React.FC<SchoolsViewProps> = ({
     }
   };
 
-  const handleEditSubmit = (e: React.FormEvent) => {
+  const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSchool) return;
     setErrorMessage('');
-    const res = updateSchool(editingSchool.id, editingSchool.name, editingSchool.status);
+    const res = await updateSchool(editingSchool.id, editingSchool.name, editingSchool.status);
     if (!res.success) {
       setErrorMessage(res.message);
     } else {
@@ -88,9 +88,9 @@ export const SchoolsView: React.FC<SchoolsViewProps> = ({
     }
   };
 
-  const handleDeleteSchoolConfirm = () => {
+  const handleDeleteSchoolConfirm = async () => {
     if (!confirmDeleteSchool) return;
-    const res = deleteSchool(confirmDeleteSchool.id);
+    const res = await deleteSchool(confirmDeleteSchool.id);
     setConfirmDeleteSchool(null);
     if (res.success) {
       showToast('success', res.message);
@@ -99,8 +99,8 @@ export const SchoolsView: React.FC<SchoolsViewProps> = ({
     }
   };
 
-  const handleRestoreSchool = (id: string) => {
-    const res = restoreSchool(id);
+  const handleRestoreSchool = async (id: string) => {
+    const res = await restoreSchool(id);
     if (res.success) {
       showToast('success', res.message);
     } else {
@@ -108,9 +108,9 @@ export const SchoolsView: React.FC<SchoolsViewProps> = ({
     }
   };
 
-  const handlePermanentDeleteSchool = () => {
+  const handlePermanentDeleteSchool = async () => {
     if (!confirmPermDeleteSchool) return;
-    const res = permanentlyDeleteSchool(confirmPermDeleteSchool.id);
+    const res = await permanentlyDeleteSchool(confirmPermDeleteSchool.id);
     setConfirmPermDeleteSchool(null);
     showToast('success', res.message);
   };

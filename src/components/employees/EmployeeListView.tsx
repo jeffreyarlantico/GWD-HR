@@ -48,9 +48,9 @@ export const EmployeeListView: React.FC<EmployeeListViewProps> = ({
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!confirmDeleteEmp) return;
-    const res = deleteEmployee(confirmDeleteEmp.id, deleteReason);
+    const res = await deleteEmployee(confirmDeleteEmp.id, deleteReason);
     setConfirmDeleteEmp(null);
     setDeleteReason('');
     if (res.success) {
