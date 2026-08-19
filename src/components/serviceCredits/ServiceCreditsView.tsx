@@ -198,7 +198,7 @@ export const ServiceCreditsView: React.FC = () => {
   }, [usedCredits, employees, filterSearch]);
 
   // Handle Add SO + Assign Credits
-  const handleSaveSO = async (e: React.FormEvent) => {
+  const handleSaveSO = (e: React.FormEvent) => {
     e.preventDefault();
     setSoModalError('');
 
@@ -207,7 +207,7 @@ export const ServiceCreditsView: React.FC = () => {
       return;
     }
 
-    const createdSO = await addSpecialOrder({
+    const createdSO = addSpecialOrder({
       soNumber: soNumber.trim(),
       soDate,
       title: soTitle.trim(),
@@ -224,7 +224,7 @@ export const ServiceCreditsView: React.FC = () => {
       }));
 
     if (assignments.length > 0) {
-      await addEarnedCreditsBatch(createdSO.id, createdSO.soNumber, assignments);
+      addEarnedCreditsBatch(createdSO.id, createdSO.soNumber, assignments);
     }
 
     // Reset & Close
@@ -236,7 +236,7 @@ export const ServiceCreditsView: React.FC = () => {
   };
 
   // Handle Deduct Used Credit
-  const handleDeductSubmit = async (e: React.FormEvent) => {
+  const handleDeductSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setDeductError('');
     setDeductSuccess('');
@@ -248,7 +248,7 @@ export const ServiceCreditsView: React.FC = () => {
 
     const selectedSO = specialOrders.find(s => s.id === deductSoId);
 
-    const result = await addUsedCredit({
+    const result = addUsedCredit({
       employeeId: deductEmpId,
       soId: deductSoId,
       soNumber: selectedSO ? selectedSO.soNumber : 'SO-Unknown',
@@ -273,9 +273,9 @@ export const ServiceCreditsView: React.FC = () => {
   // Available SOs for selected employee in Deduction Modal
   const availableSOsForDeductEmp = deductEmpId ? getAvailableSpecialOrdersForEmployee(deductEmpId) : [];
 
-  const handleConfirmDeleteSO = async (reason: string) => {
+  const handleConfirmDeleteSO = (reason: string) => {
     if (!soToDelete) return;
-    const result = await deleteSpecialOrder(soToDelete.id, reason);
+    const result = deleteSpecialOrder(soToDelete.id, reason);
     setSoToDelete(null);
     if (result.success) {
       setSoNotification({ type: 'success', message: result.message });

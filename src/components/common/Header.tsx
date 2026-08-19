@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useHRIS } from '../../context/HRISContext';
-import { Shield, ShieldAlert, UserCheck, LogOut, Cloud, CloudOff, RefreshCw } from 'lucide-react';
+import { Shield, ShieldAlert, UserCheck, LogOut } from 'lucide-react';
 import { DistrictLogo } from './DistrictLogo';
 
 interface HeaderProps {
@@ -13,19 +12,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onSearch }) => {
   const { role, setRole, userTitle, logout } = useAuth();
-  const { cloudStatus, lastCloudSync, refreshCloudData } = useHRIS();
   const [showRoleModal, setShowRoleModal] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const handleManualSync = async () => {
-    if (isRefreshing) return;
-    setIsRefreshing(true);
-    try {
-      await refreshCloudData();
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
 
   return (
     <header id="main-app-header" className="bg-slate-900/95 backdrop-blur-md text-white border-b border-slate-800 shadow-sm sticky top-0 z-30">
@@ -44,33 +31,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onSearc
         </div>
 
         {/* Right: Role Status & System Controls */}
-        <div className="flex items-center space-x-2.5 sm:space-x-3">
+        <div className="flex items-center space-x-3">
           
-          {/* Cloud Firestore Sync Status Indicator */}
-          <button
-            onClick={handleManualSync}
-            disabled={isRefreshing}
-            className={`hidden md:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-              cloudStatus === 'connected'
-                ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/50 hover:bg-emerald-900/60'
-                : cloudStatus === 'syncing'
-                ? 'bg-amber-950/40 text-amber-300 border-amber-800/50 hover:bg-amber-900/60'
-                : 'bg-rose-950/40 text-rose-300 border-rose-800/50 hover:bg-rose-900/60'
-            }`}
-            title={`Firestore Database: ${cloudStatus.toUpperCase()}${lastCloudSync ? ` • Last synced: ${lastCloudSync.toLocaleTimeString()}` : ''}. Click to refresh.`}
-          >
-            {cloudStatus === 'connected' ? (
-              <Cloud className="w-3.5 h-3.5 text-emerald-400" />
-            ) : cloudStatus === 'syncing' || isRefreshing ? (
-              <RefreshCw className="w-3.5 h-3.5 text-amber-400 animate-spin" />
-            ) : (
-              <CloudOff className="w-3.5 h-3.5 text-rose-400" />
-            )}
-            <span className="text-[11px]">
-              {isRefreshing ? 'Syncing...' : cloudStatus === 'connected' ? 'Firestore Live' : cloudStatus === 'syncing' ? 'Syncing...' : 'Offline / Error'}
-            </span>
-          </button>
-
           {/* Role Status Badge / Switch Account Button */}
           <button 
             id="user-role-badge"

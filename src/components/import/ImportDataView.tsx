@@ -192,11 +192,11 @@ export const ImportDataView: React.FC = () => {
   };
 
   // Commit Import
-  const handleCommitImport = async () => {
+  const handleCommitImport = () => {
     if (parsedRows.length === 0) return;
 
     const newEmps = parsedRows.map(r => r.data as Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>);
-    const summary = await importEmployeesBatch(newEmps, rowResolutions);
+    const summary = importEmployeesBatch(newEmps, rowResolutions);
 
     setImportSummary(summary);
     setParsedRows([]);

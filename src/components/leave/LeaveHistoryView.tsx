@@ -68,9 +68,9 @@ export const LeaveHistoryView: React.FC = () => {
     });
   };
 
-  const handleConfirmDelete = async (reason: string) => {
+  const handleConfirmDelete = (reason: string) => {
     if (!recordToDelete) return;
-    const res = await deleteLeaveRecord(recordToDelete.id, reason);
+    const res = deleteLeaveRecord(recordToDelete.id, reason);
     setRecordToDelete(null);
     if (res.success) {
       showToast('success', res.message);

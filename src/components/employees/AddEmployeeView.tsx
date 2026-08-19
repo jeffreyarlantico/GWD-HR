@@ -58,7 +58,6 @@ export const AddEmployeeView: React.FC<AddEmployeeViewProps> = ({ onBack, onSucc
 
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Batch import state
   const [parsedRows, setParsedRows] = useState<{
@@ -258,30 +257,20 @@ export const AddEmployeeView: React.FC<AddEmployeeViewProps> = ({ onBack, onSucc
   };
 
   // Commit Batch Import from Excel
-  const handleCommitBatchImport = async () => {
-    if (parsedRows.length === 0 || isSubmitting) return;
+  const handleCommitBatchImport = () => {
+    if (parsedRows.length === 0) return;
 
-    setIsSubmitting(true);
-    setErrorMessage('');
-    try {
-      const newEmps = parsedRows.map(r => r.data as Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>);
-      const summary = await importEmployeesBatch(newEmps, rowResolutions);
+    const newEmps = parsedRows.map(r => r.data as Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>);
+    const summary = importEmployeesBatch(newEmps, rowResolutions);
 
-      setSuccessMessage(`Batch Import Completed! Added: ${summary.added}, Updated: ${summary.updated}, Skipped: ${summary.skipped}`);
-      setParsedRows([]);
-      setEntryMode('MANUAL');
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Failed to complete batch import.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    setSuccessMessage(`Batch Import Completed! Added: ${summary.added}, Updated: ${summary.updated}, Skipped: ${summary.skipped}`);
+    setParsedRows([]);
+    setEntryMode('MANUAL');
   };
 
   // Submit Manual Form
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting) return;
-
     setErrorMessage('');
     setSuccessMessage('');
 
@@ -302,42 +291,35 @@ export const AddEmployeeView: React.FC<AddEmployeeViewProps> = ({ onBack, onSucc
 
     const selectedSchool = schools.find(s => s.id === schoolId);
 
-    setIsSubmitting(true);
-    try {
-      const result = await addEmployee({
-        firstName: firstName.trim(),
-        middleName: middleName.trim(),
-        lastName: lastName.trim(),
-        extensionName: extensionName.trim(),
-        birthday,
-        profilePhotoUrl: profilePhotoUrl.trim(),
+    const result = addEmployee({
+      firstName: firstName.trim(),
+      middleName: middleName.trim(),
+      lastName: lastName.trim(),
+      extensionName: extensionName.trim(),
+      birthday,
+      profilePhotoUrl: profilePhotoUrl.trim(),
 
-        employeeNumber: employeeNumber.trim(),
-        currentPosition: currentPosition.trim(),
-        itemNumber: itemNumber.trim(),
-        dateOfLatestAppointment,
-        dateOfOriginalAppointment,
-        appointmentDocumentUrl: appointmentDocumentUrl.trim(),
-        schoolId,
-        schoolName: selectedSchool ? selectedSchool.name : 'Guimba West Central School',
-        status,
+      employeeNumber: employeeNumber.trim(),
+      currentPosition: currentPosition.trim(),
+      itemNumber: itemNumber.trim(),
+      dateOfLatestAppointment,
+      dateOfOriginalAppointment,
+      appointmentDocumentUrl: appointmentDocumentUrl.trim(),
+      schoolId,
+      schoolName: selectedSchool ? selectedSchool.name : 'Guimba West Central School',
+      status,
 
-        tinNumber: tinNumber.trim(),
-        lbpAccountNumber: lbpAccountNumber.trim(),
-        gsisNumber: gsisNumber.trim(),
-        philhealthNumber: philhealthNumber.trim(),
-        pagibigNumber: pagibigNumber.trim(),
-      });
+      tinNumber: tinNumber.trim(),
+      lbpAccountNumber: lbpAccountNumber.trim(),
+      gsisNumber: gsisNumber.trim(),
+      philhealthNumber: philhealthNumber.trim(),
+      pagibigNumber: pagibigNumber.trim(),
+    });
 
-      if (!result.success) {
-        setErrorMessage(result.message);
-      } else if (result.employee) {
-        onSuccess(result.employee.id);
-      }
-    } catch (error: any) {
-      setErrorMessage(error?.message || 'Unexpected error occurred while saving employee.');
-    } finally {
-      setIsSubmitting(false);
+    if (!result.success) {
+      setErrorMessage(result.message);
+    } else if (result.employee) {
+      onSuccess(result.employee.id);
     }
   };
 
@@ -741,28 +723,17 @@ export const AddEmployeeView: React.FC<AddEmployeeViewProps> = ({ onBack, onSucc
             <button
               type="button"
               onClick={onBack}
-              disabled={isSubmitting}
-              className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 font-bold text-xs rounded-xl transition"
+              className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition"
             >
               Cancel
             </button>
             <button
               type="submit"
               id="btn-submit-add-employee"
-              disabled={isSubmitting}
-              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-xs rounded-xl transition shadow-md flex items-center space-x-2"
+              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition shadow-md flex items-center space-x-2"
             >
-              {isSubmitting ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Saving to Firestore...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  <span>Save Employee Record</span>
-                </>
-              )}
+              <Save className="w-4 h-4" />
+              <span>Save Employee Record</span>
             </button>
           </div>
 

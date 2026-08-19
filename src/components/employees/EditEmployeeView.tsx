@@ -55,12 +55,9 @@ export const EditEmployeeView: React.FC<EditEmployeeViewProps> = ({
   const [pagibigNumber, setPagibigNumber] = useState(emp.pagibigNumber || '');
 
   const [errorMessage, setErrorMessage] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting) return;
-
     setErrorMessage('');
 
     if (!firstName.trim() || !lastName.trim()) {
@@ -75,42 +72,35 @@ export const EditEmployeeView: React.FC<EditEmployeeViewProps> = ({
 
     const selectedSchool = schools.find(s => s.id === schoolId);
 
-    setIsSubmitting(true);
-    try {
-      const result = await updateEmployee(emp.id, {
-        firstName: firstName.trim(),
-        middleName: middleName.trim(),
-        lastName: lastName.trim(),
-        extensionName: extensionName.trim(),
-        birthday,
-        profilePhotoUrl: profilePhotoUrl.trim(),
+    const result = updateEmployee(emp.id, {
+      firstName: firstName.trim(),
+      middleName: middleName.trim(),
+      lastName: lastName.trim(),
+      extensionName: extensionName.trim(),
+      birthday,
+      profilePhotoUrl: profilePhotoUrl.trim(),
 
-        employeeNumber: employeeNumber.trim(),
-        currentPosition: currentPosition.trim(),
-        itemNumber: itemNumber.trim(),
-        dateOfLatestAppointment,
-        dateOfOriginalAppointment,
-        appointmentDocumentUrl: appointmentDocumentUrl.trim(),
-        schoolId,
-        schoolName: selectedSchool ? selectedSchool.name : emp.schoolName,
-        status,
+      employeeNumber: employeeNumber.trim(),
+      currentPosition: currentPosition.trim(),
+      itemNumber: itemNumber.trim(),
+      dateOfLatestAppointment,
+      dateOfOriginalAppointment,
+      appointmentDocumentUrl: appointmentDocumentUrl.trim(),
+      schoolId,
+      schoolName: selectedSchool ? selectedSchool.name : emp.schoolName,
+      status,
 
-        tinNumber: tinNumber.trim(),
-        lbpAccountNumber: lbpAccountNumber.trim(),
-        gsisNumber: gsisNumber.trim(),
-        philhealthNumber: philhealthNumber.trim(),
-        pagibigNumber: pagibigNumber.trim(),
-      });
+      tinNumber: tinNumber.trim(),
+      lbpAccountNumber: lbpAccountNumber.trim(),
+      gsisNumber: gsisNumber.trim(),
+      philhealthNumber: philhealthNumber.trim(),
+      pagibigNumber: pagibigNumber.trim(),
+    });
 
-      if (!result.success) {
-        setErrorMessage(result.message);
-      } else {
-        onSuccess();
-      }
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Failed to update employee in Firestore.');
-    } finally {
-      setIsSubmitting(false);
+    if (!result.success) {
+      setErrorMessage(result.message);
+    } else {
+      onSuccess();
     }
   };
 
@@ -329,28 +319,17 @@ export const EditEmployeeView: React.FC<EditEmployeeViewProps> = ({
           <button
             type="button"
             onClick={onBack}
-            disabled={isSubmitting}
-            className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 font-bold text-xs rounded-xl transition"
+            className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition"
           >
             Cancel
           </button>
           <button
             type="submit"
             id="btn-submit-edit-employee"
-            disabled={isSubmitting}
-            className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-slate-950 font-bold text-xs rounded-xl transition shadow-md flex items-center space-x-2"
+            className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl transition shadow-md flex items-center space-x-2"
           >
-            {isSubmitting ? (
-              <>
-                <div className="w-4 h-4 border-2 border-slate-900/30 border-t-slate-900 rounded-full animate-spin" />
-                <span>Updating in Firestore...</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                <span>Update Employee Record</span>
-              </>
-            )}
+            <Save className="w-4 h-4" />
+            <span>Update Employee Record</span>
           </button>
         </div>
 
