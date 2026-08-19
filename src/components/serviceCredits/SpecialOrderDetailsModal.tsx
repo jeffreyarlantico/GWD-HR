@@ -16,13 +16,9 @@ import {
   Filter, 
   Trash2,
   TrendingDown,
-  Info,
-  Edit3,
-  AlertCircle
+  Info
 } from 'lucide-react';
 import { SpecialOrder, Employee, ServiceCreditEarned, ServiceCreditUsed, School } from '../../types';
-import { useHRIS } from '../../context/HRISContext';
-import { EditSpecialOrderModal } from './EditSpecialOrderModal';
 
 interface SpecialOrderDetailsModalProps {
   isOpen: boolean;
@@ -36,13 +32,12 @@ interface SpecialOrderDetailsModalProps {
   onRecordDeductionForEmployee?: (employeeId: string, soId: string) => void;
   onDeleteEarnedCredit?: (creditId: string) => void;
   onDeleteUsedCredit?: (creditId: string) => void;
-  onEditSpecialOrder?: (so: SpecialOrder) => void;
 }
 
 export const SpecialOrderDetailsModal: React.FC<SpecialOrderDetailsModalProps> = ({
   isOpen,
   onClose,
-  specialOrder: initialSpecialOrder,
+  specialOrder,
   employees,
   schools,
   earnedCredits,
@@ -50,45 +45,25 @@ export const SpecialOrderDetailsModal: React.FC<SpecialOrderDetailsModalProps> =
   role,
   onRecordDeductionForEmployee,
   onDeleteEarnedCredit,
-  onDeleteUsedCredit,
-  onEditSpecialOrder
+  onDeleteUsedCredit
 }) => {
-  const { specialOrders, updateSpecialOrderFull } = useHRIS();
-  
-  // Track active special order, reflecting any real-time updates
-  const specialOrder = useMemo(() => {
-    if (!initialSpecialOrder) return null;
-    return specialOrders.find(s => s.id === initialSpecialOrder.id) || initialSpecialOrder;
-  }, [specialOrders, initialSpecialOrder]);
-
   const [activeTab, setActiveTab] = useState<'ROSTER' | 'DEDUCTIONS' | 'INFO'>('ROSTER');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState('ALL');
   const [copiedSO, setCopiedSO] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // If not open or no SO selected
+  if (!isOpen || !specialOrder) return null;
 
   // Filter earned credits specifically for this SO
-  const soEarnedCredits = useMemo(() => {
-    if (!specialOrder) return [];
-    return earnedCredits.filter(ec => ec.soId === specialOrder.id);
-  }, [earnedCredits, specialOrder]);
+  const soEarnedCredits = earnedCredits.filter(ec => ec.soId === specialOrder.id);
   
   // Filter used credits specifically for this SO
-  const soUsedCredits = useMemo(() => {
-    if (!specialOrder) return [];
-    return usedCredits.filter(uc => uc.soId === specialOrder.id);
-  }, [usedCredits, specialOrder]);
+  const soUsedCredits = usedCredits.filter(uc => uc.soId === specialOrder.id);
 
   // Total calculations
-  const totalGrantedCredits = useMemo(() => {
-    return soEarnedCredits.reduce((sum, item) => sum + (item.earnedCredits || 0), 0);
-  }, [soEarnedCredits]);
-
-  const totalUsedCreditsForSO = useMemo(() => {
-    return soUsedCredits.reduce((sum, item) => sum + (item.usedCredits || 0), 0);
-  }, [soUsedCredits]);
-
+  const totalGrantedCredits = soEarnedCredits.reduce((sum, item) => sum + (item.earnedCredits || 0), 0);
+  const totalUsedCreditsForSO = soUsedCredits.reduce((sum, item) => sum + (item.usedCredits || 0), 0);
   const remainingAvailableForSO = Math.max(0, totalGrantedCredits - totalUsedCreditsForSO);
   const utilizationPercentage = totalGrantedCredits > 0 
     ? Math.min(100, Math.round((totalUsedCreditsForSO / totalGrantedCredits) * 100)) 
@@ -96,7 +71,6 @@ export const SpecialOrderDetailsModal: React.FC<SpecialOrderDetailsModalProps> =
 
   // Map employee info with credits for this SO
   const recipientRoster = useMemo(() => {
-    if (!specialOrder) return [];
     return soEarnedCredits.map(ec => {
       const employee = employees.find(e => e.id === ec.employeeId);
       
@@ -124,7 +98,7 @@ export const SpecialOrderDetailsModal: React.FC<SpecialOrderDetailsModalProps> =
         createdAt: ec.createdAt
       };
     });
-  }, [soEarnedCredits, soUsedCredits, employees, specialOrder]);
+  }, [soEarnedCredits, soUsedCredits, employees]);
 
   // Filter recipient roster based on search and school
   const filteredRoster = useMemo(() => {
@@ -145,38 +119,14 @@ export const SpecialOrderDetailsModal: React.FC<SpecialOrderDetailsModalProps> =
 
   // Copy SO Number to clipboard
   const handleCopySO = () => {
-    if (!specialOrder) return;
     navigator.clipboard.writeText(specialOrder.soNumber);
     setCopiedSO(true);
     setTimeout(() => setCopiedSO(false), 2000);
   };
 
   const handleOpenDoc = (url: string) => {
-    if (!url) return;
-    if (url.startsWith('data:')) {
-      const win = window.open();
-      if (win) {
-        if (url.startsWith('data:application/pdf')) {
-          win.document.write(
-            `<iframe src="${url}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`
-          );
-        } else if (url.startsWith('data:image')) {
-          win.document.write(
-            `<div style="display:flex;justify-content:center;align-items:center;min-height:100vh;background:#0f172a;"><img src="${url}" style="max-width:100%;max-height:100vh;object-fit:contain;"/></div>`
-          );
-        } else {
-          win.document.write(
-            `<div style="font-family:sans-serif;padding:2rem;text-align:center;"><h2>Special Order Document</h2><a href="${url}" download="${specialOrder?.soNumber || 'special_order'}_document">Click here to download file</a></div>`
-          );
-        }
-      }
-    } else {
-      window.open(url, '_blank', 'noopener,noreferrer');
-    }
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
-
-  // If not open or no SO selected
-  if (!isOpen || !specialOrder) return null;
 
   return (
     <div
@@ -224,29 +174,14 @@ export const SpecialOrderDetailsModal: React.FC<SpecialOrderDetailsModalProps> =
               </h2>
             </div>
 
-            {/* Action Buttons (Edit + Close) */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {role === 'ADMIN' && (
-                <button
-                  type="button"
-                  id="btn-edit-special-order-header"
-                  onClick={() => setShowEditModal(true)}
-                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm active:scale-95"
-                  title="Edit Special Order Details & Beneficiary Allocations"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>Edit Special Order</span>
-                </button>
-              )}
-
-              <button
-                onClick={onClose}
-                className="text-slate-400 hover:text-white p-1.5 rounded-xl bg-white/5 hover:bg-white/15 transition flex-shrink-0"
-                title="Close modal (Esc)"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            {/* Close Button */}
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-white p-1.5 rounded-xl bg-white/5 hover:bg-white/15 transition flex-shrink-0"
+              title="Close modal (Esc)"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
           {/* Attached Document Quick Bar */}
@@ -267,27 +202,6 @@ export const SpecialOrderDetailsModal: React.FC<SpecialOrderDetailsModalProps> =
             </div>
           )}
         </div>
-
-        {/* Notification Toast */}
-        {notification && (
-          <div className={`mx-5 mt-4 p-3.5 rounded-xl border flex items-center justify-between shadow-xs animate-fade-in ${
-            notification.type === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-              : 'bg-rose-50 border-rose-200 text-rose-900'
-          }`}>
-            <div className="flex items-center space-x-2">
-              {notification.type === 'success' ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-              ) : (
-                <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
-              )}
-              <span className="text-xs font-bold">{notification.message}</span>
-            </div>
-            <button onClick={() => setNotification(null)} className="text-slate-400 hover:text-slate-700">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
 
         {/* SUMMARY STATS BAR */}
         <div className="bg-slate-50 border-b border-slate-200 px-5 py-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
@@ -635,23 +549,10 @@ export const SpecialOrderDetailsModal: React.FC<SpecialOrderDetailsModalProps> =
           {activeTab === 'INFO' && (
             <div className="space-y-4 text-xs">
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-900 flex items-center gap-1.5">
-                    <Info className="w-4 h-4 text-amber-600" />
-                    <span>Special Order Information & Audit Trail</span>
-                  </h4>
-
-                  {role === 'ADMIN' && (
-                    <button
-                      type="button"
-                      onClick={() => setShowEditModal(true)}
-                      className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-[11px] flex items-center gap-1 transition shadow-2xs"
-                    >
-                      <Edit3 className="w-3 h-3" />
-                      <span>Edit Information</span>
-                    </button>
-                  )}
-                </div>
+                <h4 className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <Info className="w-4 h-4 text-amber-600" />
+                  Special Order Information & Audit Trail
+                </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-slate-700">
                   <div>
@@ -685,23 +586,16 @@ export const SpecialOrderDetailsModal: React.FC<SpecialOrderDetailsModalProps> =
 
                   {specialOrder.soDocumentUrl && (
                     <div className="sm:col-span-2">
-                      <span className="text-slate-400 block text-[10px]">Official Special Order Document</span>
-                      <div className="flex items-center gap-2 mt-1">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenDoc(specialOrder.soDocumentUrl!)}
-                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
-                        >
-                          <FileText className="w-3.5 h-3.5" />
-                          <span>View Official Document</span>
-                          <ExternalLink className="w-3 h-3 ml-0.5" />
-                        </button>
-                        {!specialOrder.soDocumentUrl.startsWith('data:') && (
-                          <span className="text-slate-500 font-mono text-[11px] truncate max-w-sm">
-                            {specialOrder.soDocumentUrl}
-                          </span>
-                        )}
-                      </div>
+                      <span className="text-slate-400 block text-[10px]">Official OneDrive Document URL</span>
+                      <a
+                        href={specialOrder.soDocumentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-700 hover:underline break-all font-mono text-[11px] flex items-center gap-1 mt-0.5"
+                      >
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                        <span>{specialOrder.soDocumentUrl}</span>
+                      </a>
                     </div>
                   )}
                 </div>
@@ -718,17 +612,6 @@ export const SpecialOrderDetailsModal: React.FC<SpecialOrderDetailsModalProps> =
           </div>
 
           <div className="flex items-center gap-2">
-            {role === 'ADMIN' && (
-              <button
-                type="button"
-                onClick={() => setShowEditModal(true)}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition shadow-xs flex items-center gap-1.5"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>Edit Special Order</span>
-              </button>
-            )}
-
             <button
               type="button"
               onClick={onClose}
@@ -740,47 +623,6 @@ export const SpecialOrderDetailsModal: React.FC<SpecialOrderDetailsModalProps> =
         </div>
 
       </div>
-
-      {/* EDIT SPECIAL ORDER MODAL */}
-      {showEditModal && (
-        <EditSpecialOrderModal
-          isOpen={showEditModal}
-          onClose={() => setShowEditModal(false)}
-          specialOrder={specialOrder}
-          employees={employees}
-          schools={schools}
-          earnedCredits={earnedCredits}
-          usedCredits={usedCredits}
-          onSave={(payload) => {
-            const result = updateSpecialOrderFull(
-              payload.id,
-              {
-                soNumber: payload.soNumber,
-                soDate: payload.soDate,
-                title: payload.title,
-                soDocumentUrl: payload.soDocumentUrl
-              },
-              payload.allocations,
-              payload.deletedAllocationIds
-            );
-
-            if (result.success) {
-              setNotification({ type: 'success', message: result.message });
-              setTimeout(() => setNotification(null), 4000);
-              if (onEditSpecialOrder && specialOrder) {
-                onEditSpecialOrder({
-                  ...specialOrder,
-                  soNumber: payload.soNumber,
-                  soDate: payload.soDate,
-                  title: payload.title,
-                  soDocumentUrl: payload.soDocumentUrl
-                });
-              }
-            }
-            return result;
-          }}
-        />
-      )}
     </div>
   );
 };

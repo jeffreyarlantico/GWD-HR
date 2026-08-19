@@ -1,6 +1,6 @@
 /**
  * Storage Service for Guimba West District HRIS
- * Uses LocalStorage with fallback & IndexedDB ready structure
+ * Uses LocalStorage with fallback
  */
 
 import { INITIAL_EMPLOYEES, INITIAL_EARNED_CREDITS, INITIAL_LEAVE_RECORDS, INITIAL_PROMOTIONS, INITIAL_SCHOOL_ASSIGNMENTS, INITIAL_SCHOOLS, INITIAL_SPECIAL_ORDERS, INITIAL_USED_CREDITS } from '../data/initialData';
@@ -24,7 +24,7 @@ const STORAGE_KEYS = {
 function getItem<T>(key: string, defaultValue: T): T {
   try {
     const data = localStorage.getItem(key);
-    if (!data) return defaultValue;
+    if (data === null || data === undefined) return defaultValue;
     return JSON.parse(data) as T;
   } catch (err) {
     console.error(`Error reading ${key} from storage:`, err);
@@ -42,28 +42,28 @@ function setItem<T>(key: string, value: T): void {
 
 export class StorageService {
   public static initStorage(): void {
-    if (!localStorage.getItem(STORAGE_KEYS.EMPLOYEES)) {
+    if (localStorage.getItem(STORAGE_KEYS.EMPLOYEES) === null) {
       setItem(STORAGE_KEYS.EMPLOYEES, INITIAL_EMPLOYEES);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.SCHOOLS)) {
+    if (localStorage.getItem(STORAGE_KEYS.SCHOOLS) === null) {
       setItem(STORAGE_KEYS.SCHOOLS, INITIAL_SCHOOLS);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.PROMOTIONS)) {
+    if (localStorage.getItem(STORAGE_KEYS.PROMOTIONS) === null) {
       setItem(STORAGE_KEYS.PROMOTIONS, INITIAL_PROMOTIONS);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.SCHOOL_ASSIGNMENTS)) {
+    if (localStorage.getItem(STORAGE_KEYS.SCHOOL_ASSIGNMENTS) === null) {
       setItem(STORAGE_KEYS.SCHOOL_ASSIGNMENTS, INITIAL_SCHOOL_ASSIGNMENTS);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.SPECIAL_ORDERS)) {
+    if (localStorage.getItem(STORAGE_KEYS.SPECIAL_ORDERS) === null) {
       setItem(STORAGE_KEYS.SPECIAL_ORDERS, INITIAL_SPECIAL_ORDERS);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.EARNED_CREDITS)) {
+    if (localStorage.getItem(STORAGE_KEYS.EARNED_CREDITS) === null) {
       setItem(STORAGE_KEYS.EARNED_CREDITS, INITIAL_EARNED_CREDITS);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.USED_CREDITS)) {
+    if (localStorage.getItem(STORAGE_KEYS.USED_CREDITS) === null) {
       setItem(STORAGE_KEYS.USED_CREDITS, INITIAL_USED_CREDITS);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.LEAVE_RECORDS)) {
+    if (localStorage.getItem(STORAGE_KEYS.LEAVE_RECORDS) === null) {
       setItem(STORAGE_KEYS.LEAVE_RECORDS, INITIAL_LEAVE_RECORDS);
     }
   }
@@ -77,12 +77,16 @@ export class StorageService {
     setItem(STORAGE_KEYS.EARNED_CREDITS, INITIAL_EARNED_CREDITS);
     setItem(STORAGE_KEYS.USED_CREDITS, INITIAL_USED_CREDITS);
     setItem(STORAGE_KEYS.LEAVE_RECORDS, INITIAL_LEAVE_RECORDS);
+    setItem(STORAGE_KEYS.DELETED_EMPLOYEES, []);
+    setItem(STORAGE_KEYS.DELETED_SCHOOLS, []);
+    setItem(STORAGE_KEYS.DELETED_LEAVE_RECORDS, []);
+    setItem(STORAGE_KEYS.DELETED_SPECIAL_ORDERS, []);
   }
 
   // Employees
   public static getEmployees(): Employee[] {
     const data = getItem<Employee[] | null>(STORAGE_KEYS.EMPLOYEES, null);
-    if (!data || data.length === 0) {
+    if (data === null) {
       setItem(STORAGE_KEYS.EMPLOYEES, INITIAL_EMPLOYEES);
       return INITIAL_EMPLOYEES;
     }
@@ -96,7 +100,7 @@ export class StorageService {
   // Schools
   public static getSchools(): School[] {
     const data = getItem<School[] | null>(STORAGE_KEYS.SCHOOLS, null);
-    if (!data || data.length === 0) {
+    if (data === null) {
       setItem(STORAGE_KEYS.SCHOOLS, INITIAL_SCHOOLS);
       return INITIAL_SCHOOLS;
     }
@@ -110,7 +114,7 @@ export class StorageService {
   // Promotions
   public static getPromotions(): PromotionRecord[] {
     const data = getItem<PromotionRecord[] | null>(STORAGE_KEYS.PROMOTIONS, null);
-    if (!data || data.length === 0) {
+    if (data === null) {
       setItem(STORAGE_KEYS.PROMOTIONS, INITIAL_PROMOTIONS);
       return INITIAL_PROMOTIONS;
     }
@@ -124,7 +128,7 @@ export class StorageService {
   // School Assignments
   public static getSchoolAssignments(): SchoolAssignmentRecord[] {
     const data = getItem<SchoolAssignmentRecord[] | null>(STORAGE_KEYS.SCHOOL_ASSIGNMENTS, null);
-    if (!data || data.length === 0) {
+    if (data === null) {
       setItem(STORAGE_KEYS.SCHOOL_ASSIGNMENTS, INITIAL_SCHOOL_ASSIGNMENTS);
       return INITIAL_SCHOOL_ASSIGNMENTS;
     }
@@ -138,7 +142,7 @@ export class StorageService {
   // Special Orders
   public static getSpecialOrders(): SpecialOrder[] {
     const data = getItem<SpecialOrder[] | null>(STORAGE_KEYS.SPECIAL_ORDERS, null);
-    if (!data || data.length === 0) {
+    if (data === null) {
       setItem(STORAGE_KEYS.SPECIAL_ORDERS, INITIAL_SPECIAL_ORDERS);
       return INITIAL_SPECIAL_ORDERS;
     }
@@ -152,7 +156,7 @@ export class StorageService {
   // Earned Credits
   public static getEarnedCredits(): ServiceCreditEarned[] {
     const data = getItem<ServiceCreditEarned[] | null>(STORAGE_KEYS.EARNED_CREDITS, null);
-    if (!data || data.length === 0) {
+    if (data === null) {
       setItem(STORAGE_KEYS.EARNED_CREDITS, INITIAL_EARNED_CREDITS);
       return INITIAL_EARNED_CREDITS;
     }
@@ -166,7 +170,7 @@ export class StorageService {
   // Used Credits
   public static getUsedCredits(): ServiceCreditUsed[] {
     const data = getItem<ServiceCreditUsed[] | null>(STORAGE_KEYS.USED_CREDITS, null);
-    if (!data || data.length === 0) {
+    if (data === null) {
       setItem(STORAGE_KEYS.USED_CREDITS, INITIAL_USED_CREDITS);
       return INITIAL_USED_CREDITS;
     }
@@ -180,7 +184,7 @@ export class StorageService {
   // Leave Records
   public static getLeaveRecords(): LeaveRecord[] {
     const data = getItem<LeaveRecord[] | null>(STORAGE_KEYS.LEAVE_RECORDS, null);
-    if (!data || data.length === 0) {
+    if (data === null) {
       setItem(STORAGE_KEYS.LEAVE_RECORDS, INITIAL_LEAVE_RECORDS);
       return INITIAL_LEAVE_RECORDS;
     }

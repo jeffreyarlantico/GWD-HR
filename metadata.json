@@ -1,6 +1,6 @@
 {
   "name": "Guimba West District HR Information System (HRIS)",
-  "description": "DepEd Guimba West District HR Information System for managing employee records, promotion history, school assignments, service credits with Special Orders, leave history, Google Drive cloud repository, OneDrive document references, and Excel/Google Sheets import.",
+  "description": "DepEd Guimba West District HR Information System for managing employee records, promotion history, school assignments, service credits with Special Orders, leave history, OneDrive document references, and Excel/Google Sheets import.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

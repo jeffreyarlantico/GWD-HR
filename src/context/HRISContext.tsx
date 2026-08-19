@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import { StorageService } from '../services/storageService';
 import { FirestoreSyncService } from '../services/firestoreService';
 import { 
@@ -59,12 +59,6 @@ interface HRISContextType {
   // Actions - Special Orders & Service Credits
   addSpecialOrder: (so: Omit<SpecialOrder, 'id' | 'createdAt' | 'updatedAt'>) => SpecialOrder;
   updateSpecialOrder: (id: string, so: Partial<SpecialOrder>) => void;
-  updateSpecialOrderFull: (
-    id: string,
-    soData: Partial<SpecialOrder>,
-    allocations: { id?: string; employeeId: string; earnedCredits: number; remarks?: string }[],
-    deletedAllocationIds?: string[]
-  ) => { success: boolean; message: string };
   deleteSpecialOrder: (id: string, reason?: string) => { success: boolean; message: string };
   restoreSpecialOrder: (id: string) => { success: boolean; message: string };
   permanentlyDeleteSpecialOrder: (id: string) => { success: boolean; message: string };
@@ -98,9 +92,7 @@ const HRISContext = createContext<HRISContextType | undefined>(undefined);
 
 export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Initialize Storage
-  useEffect(() => {
-    StorageService.initStorage();
-  }, []);
+  StorageService.initStorage();
 
   const [employees, setEmployees] = useState<Employee[]>(() => StorageService.getEmployees());
   const [deletedEmployees, setDeletedEmployees] = useState<DeletedEmployee[]>(() => StorageService.getDeletedEmployees());
@@ -115,25 +107,16 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [leaveRecords, setLeaveRecords] = useState<LeaveRecord[]>(() => StorageService.getLeaveRecords());
   const [deletedLeaveRecords, setDeletedLeaveRecords] = useState<DeletedLeaveRecord[]>(() => StorageService.getDeletedLeaveRecords());
 
-  // Sync to Storage
-  useEffect(() => StorageService.saveEmployees(employees), [employees]);
-  useEffect(() => StorageService.saveDeletedEmployees(deletedEmployees), [deletedEmployees]);
-  useEffect(() => StorageService.saveSchools(schools), [schools]);
-  useEffect(() => StorageService.saveDeletedSchools(deletedSchools), [deletedSchools]);
-  useEffect(() => StorageService.saveSpecialOrders(specialOrders), [specialOrders]);
-  useEffect(() => StorageService.saveDeletedSpecialOrders(deletedSpecialOrders), [deletedSpecialOrders]);
-  useEffect(() => StorageService.saveEarnedCredits(earnedCredits), [earnedCredits]);
-  useEffect(() => StorageService.saveUsedCredits(usedCredits), [usedCredits]);
-  useEffect(() => StorageService.savePromotions(promotions), [promotions]);
-  useEffect(() => StorageService.saveSchoolAssignments(schoolAssignments), [schoolAssignments]);
-  useEffect(() => StorageService.saveLeaveRecords(leaveRecords), [leaveRecords]);
-  useEffect(() => StorageService.saveDeletedLeaveRecords(deletedLeaveRecords), [deletedLeaveRecords]);
+  // Firestore Sync initialization & real-time subscriptions
+  const initialCloudSyncDoneRef = useRef(false);
 
-  // Firestore Cloud Synchronization & Subscriptions
   useEffect(() => {
     let isMounted = true;
 
     const syncInitialCloudData = async () => {
+      if (initialCloudSyncDoneRef.current) return;
+      initialCloudSyncDoneRef.current = true;
+
       try {
         const isSchoolsEmpty = await FirestoreSyncService.isCollectionEmpty('schools');
         if (isSchoolsEmpty && isMounted) {
@@ -176,40 +159,79 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Subscribe to collections
     const unsubSchools = FirestoreSyncService.subscribeToCollection<School>('schools', (cloud) => {
-      if (cloud && cloud.length > 0) setSchools(cloud);
+      if (cloud && cloud.length > 0) {
+        setSchools(cloud);
+        StorageService.saveSchools(cloud);
+      }
     });
+
     const unsubEmps = FirestoreSyncService.subscribeToCollection<Employee>('employees', (cloud) => {
-      if (cloud && cloud.length > 0) setEmployees(cloud);
+      if (cloud && cloud.length > 0) {
+        setEmployees(cloud);
+        StorageService.saveEmployees(cloud);
+      }
     });
+
     const unsubPromos = FirestoreSyncService.subscribeToCollection<PromotionRecord>('promotions', (cloud) => {
-      if (cloud && cloud.length > 0) setPromotions(cloud);
+      if (cloud && cloud.length > 0) {
+        setPromotions(cloud);
+        StorageService.savePromotions(cloud);
+      }
     });
+
     const unsubAssign = FirestoreSyncService.subscribeToCollection<SchoolAssignmentRecord>('schoolAssignments', (cloud) => {
-      if (cloud && cloud.length > 0) setSchoolAssignments(cloud);
+      if (cloud && cloud.length > 0) {
+        setSchoolAssignments(cloud);
+        StorageService.saveSchoolAssignments(cloud);
+      }
     });
+
     const unsubSO = FirestoreSyncService.subscribeToCollection<SpecialOrder>('specialOrders', (cloud) => {
-      if (cloud && cloud.length > 0) setSpecialOrders(cloud);
+      if (cloud && cloud.length > 0) {
+        setSpecialOrders(cloud);
+        StorageService.saveSpecialOrders(cloud);
+      }
     });
+
     const unsubEarned = FirestoreSyncService.subscribeToCollection<ServiceCreditEarned>('serviceCreditsEarned', (cloud) => {
-      if (cloud && cloud.length > 0) setEarnedCredits(cloud);
+      if (cloud && cloud.length > 0) {
+        setEarnedCredits(cloud);
+        StorageService.saveEarnedCredits(cloud);
+      }
     });
+
     const unsubUsed = FirestoreSyncService.subscribeToCollection<ServiceCreditUsed>('serviceCreditsUsed', (cloud) => {
-      if (cloud && cloud.length > 0) setUsedCredits(cloud);
+      if (cloud && cloud.length > 0) {
+        setUsedCredits(cloud);
+        StorageService.saveUsedCredits(cloud);
+      }
     });
+
     const unsubLeave = FirestoreSyncService.subscribeToCollection<LeaveRecord>('leaveRecords', (cloud) => {
-      if (cloud && cloud.length > 0) setLeaveRecords(cloud);
+      if (cloud && cloud.length > 0) {
+        setLeaveRecords(cloud);
+        StorageService.saveLeaveRecords(cloud);
+      }
     });
+
     const unsubDelEmp = FirestoreSyncService.subscribeToCollection<DeletedEmployee>('deletedEmployees', (cloud) => {
-      setDeletedEmployees(cloud);
+      setDeletedEmployees(cloud || []);
+      StorageService.saveDeletedEmployees(cloud || []);
     });
+
     const unsubDelSchool = FirestoreSyncService.subscribeToCollection<DeletedSchool>('deletedSchools', (cloud) => {
-      setDeletedSchools(cloud);
+      setDeletedSchools(cloud || []);
+      StorageService.saveDeletedSchools(cloud || []);
     });
+
     const unsubDelSO = FirestoreSyncService.subscribeToCollection<DeletedSpecialOrder>('deletedSpecialOrders', (cloud) => {
-      setDeletedSpecialOrders(cloud);
+      setDeletedSpecialOrders(cloud || []);
+      StorageService.saveDeletedSpecialOrders(cloud || []);
     });
+
     const unsubDelLeave = FirestoreSyncService.subscribeToCollection<DeletedLeaveRecord>('deletedLeaveRecords', (cloud) => {
-      setDeletedLeaveRecords(cloud);
+      setDeletedLeaveRecords(cloud || []);
+      StorageService.saveDeletedLeaveRecords(cloud || []);
     });
 
     return () => {
@@ -293,7 +315,7 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Upcoming Birthdays within 30 days
   const upcomingBirthdays = useMemo(() => {
-    const today = new Date(); // e.g. 2026-08-07
+    const today = new Date();
     const currentYear = today.getFullYear();
     const result: BirthdayUpcoming[] = [];
 
@@ -307,7 +329,7 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // If birthday already passed this year, check next year
       if (nextBday < today) {
         const diffDaysPassed = (today.getTime() - nextBday.getTime()) / (1000 * 3600 * 24);
-        if (diffDaysPassed > 1) { // passed more than 1 day ago
+        if (diffDaysPassed > 1) {
           nextBday = new Date(currentYear + 1, birthDate.getMonth(), birthDate.getDate());
         }
       }
@@ -352,7 +374,10 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updatedAt: now,
     };
 
-    setEmployees(prev => [...prev, newEmp]);
+    const nextEmployees = [...employees, newEmp];
+    setEmployees(nextEmployees);
+    StorageService.saveEmployees(nextEmployees);
+    FirestoreSyncService.saveItem('employees', newEmp);
 
     // Automatically create initial position appointment record
     const initialPromotion: PromotionRecord = {
@@ -365,7 +390,10 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       remarks: 'Initial Appointment Record',
       createdAt: now
     };
-    setPromotions(prev => [...prev, initialPromotion]);
+    const nextPromotions = [...promotions, initialPromotion];
+    setPromotions(nextPromotions);
+    StorageService.savePromotions(nextPromotions);
+    FirestoreSyncService.saveItem('promotions', initialPromotion);
 
     return {
       success: true,
@@ -389,9 +417,13 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const now = new Date().toISOString();
-    setEmployees(prev =>
-      prev.map(e => (e.id === id ? { ...e, ...data, updatedAt: now } : e))
-    );
+    const updatedEmp = { ...emp, ...data, updatedAt: now };
+    const nextEmployees = employees.map(e => (e.id === id ? updatedEmp : e));
+    
+    setEmployees(nextEmployees);
+    StorageService.saveEmployees(nextEmployees);
+    FirestoreSyncService.saveItem('employees', updatedEmp);
+
     return { success: true, message: 'Employee updated successfully.' };
   };
 
@@ -405,8 +437,16 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       deleteReason: reason || 'Deleted by Administrator'
     };
 
-    setDeletedEmployees(prev => [deletedRecord, ...prev.filter(e => e.id !== id)]);
-    setEmployees(prev => prev.filter(e => e.id !== id));
+    const nextEmployees = employees.filter(e => e.id !== id);
+    const nextDeleted = [deletedRecord, ...deletedEmployees.filter(e => e.id !== id)];
+
+    setEmployees(nextEmployees);
+    setDeletedEmployees(nextDeleted);
+    StorageService.saveEmployees(nextEmployees);
+    StorageService.saveDeletedEmployees(nextDeleted);
+
+    FirestoreSyncService.deleteItem('employees', id);
+    FirestoreSyncService.saveItem('deletedEmployees', deletedRecord);
 
     return { 
       success: true, 
@@ -433,8 +473,16 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updatedAt: new Date().toISOString()
     };
 
-    setEmployees(prev => [...prev, restoredEmp]);
-    setDeletedEmployees(prev => prev.filter(e => e.id !== id));
+    const nextEmployees = [...employees, restoredEmp];
+    const nextDeleted = deletedEmployees.filter(e => e.id !== id);
+
+    setEmployees(nextEmployees);
+    setDeletedEmployees(nextDeleted);
+    StorageService.saveEmployees(nextEmployees);
+    StorageService.saveDeletedEmployees(nextDeleted);
+
+    FirestoreSyncService.saveItem('employees', restoredEmp);
+    FirestoreSyncService.deleteItem('deletedEmployees', id);
 
     return { 
       success: true, 
@@ -444,14 +492,35 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const permanentlyDeleteEmployee = (id: string) => {
     const target = deletedEmployees.find(e => e.id === id);
-    setDeletedEmployees(prev => prev.filter(e => e.id !== id));
+    const nextDeleted = deletedEmployees.filter(e => e.id !== id);
+    setDeletedEmployees(nextDeleted);
+    StorageService.saveDeletedEmployees(nextDeleted);
+    FirestoreSyncService.deleteItem('deletedEmployees', id);
     
     // Clean up associated child records
-    setPromotions(prev => prev.filter(p => p.employeeId !== id));
-    setSchoolAssignments(prev => prev.filter(sa => sa.employeeId !== id));
-    setEarnedCredits(prev => prev.filter(ec => ec.employeeId !== id));
-    setUsedCredits(prev => prev.filter(uc => uc.employeeId !== id));
-    setLeaveRecords(prev => prev.filter(l => l.employeeId !== id));
+    const nextPromos = promotions.filter(p => p.employeeId !== id);
+    const nextAssignments = schoolAssignments.filter(sa => sa.employeeId !== id);
+    const nextEarned = earnedCredits.filter(ec => ec.employeeId !== id);
+    const nextUsed = usedCredits.filter(uc => uc.employeeId !== id);
+    const nextLeaves = leaveRecords.filter(l => l.employeeId !== id);
+
+    setPromotions(nextPromos);
+    setSchoolAssignments(nextAssignments);
+    setEarnedCredits(nextEarned);
+    setUsedCredits(nextUsed);
+    setLeaveRecords(nextLeaves);
+
+    StorageService.savePromotions(nextPromos);
+    StorageService.saveSchoolAssignments(nextAssignments);
+    StorageService.saveEarnedCredits(nextEarned);
+    StorageService.saveUsedCredits(nextUsed);
+    StorageService.saveLeaveRecords(nextLeaves);
+
+    promotions.filter(p => p.employeeId === id).forEach(p => FirestoreSyncService.deleteItem('promotions', p.id));
+    schoolAssignments.filter(sa => sa.employeeId === id).forEach(sa => FirestoreSyncService.deleteItem('schoolAssignments', sa.id));
+    earnedCredits.filter(ec => ec.employeeId === id).forEach(ec => FirestoreSyncService.deleteItem('serviceCreditsEarned', ec.id));
+    usedCredits.filter(uc => uc.employeeId === id).forEach(uc => FirestoreSyncService.deleteItem('serviceCreditsUsed', uc.id));
+    leaveRecords.filter(l => l.employeeId === id).forEach(l => FirestoreSyncService.deleteItem('leaveRecords', l.id));
 
     return { 
       success: true, 
@@ -500,7 +569,12 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    setSchools(prev => [...prev, newSchool]);
+
+    const nextSchools = [...schools, newSchool];
+    setSchools(nextSchools);
+    StorageService.saveSchools(nextSchools);
+    FirestoreSyncService.saveItem('schools', newSchool);
+
     return { success: true, message: 'School added successfully.' };
   };
 
@@ -508,10 +582,24 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const trimmed = name.trim();
     if (!trimmed) return { success: false, message: 'School name is required.' };
 
-    setSchools(prev => prev.map(s => s.id === id ? { ...s, name: trimmed, status, updatedAt: new Date().toISOString() } : s));
+    const updatedSchool: School = {
+      id,
+      name: trimmed,
+      status,
+      createdAt: schools.find(s => s.id === id)?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const nextSchools = schools.map(s => s.id === id ? updatedSchool : s);
+    setSchools(nextSchools);
+    StorageService.saveSchools(nextSchools);
+    FirestoreSyncService.saveItem('schools', updatedSchool);
     
     // Also update schoolName across employees
-    setEmployees(prev => prev.map(e => e.schoolId === id ? { ...e, schoolName: trimmed } : e));
+    const nextEmployees = employees.map(e => e.schoolId === id ? { ...e, schoolName: trimmed } : e);
+    setEmployees(nextEmployees);
+    StorageService.saveEmployees(nextEmployees);
+    nextEmployees.filter(e => e.schoolId === id).forEach(e => FirestoreSyncService.saveItem('employees', e));
 
     return { success: true, message: 'School updated successfully.' };
   };
@@ -526,8 +614,16 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       deleteReason: reason || 'Deleted by Administrator'
     };
 
-    setDeletedSchools(prev => [deletedRecord, ...prev.filter(s => s.id !== id)]);
-    setSchools(prev => prev.filter(s => s.id !== id));
+    const nextSchools = schools.filter(s => s.id !== id);
+    const nextDeleted = [deletedRecord, ...deletedSchools.filter(s => s.id !== id)];
+
+    setSchools(nextSchools);
+    setDeletedSchools(nextDeleted);
+    StorageService.saveSchools(nextSchools);
+    StorageService.saveDeletedSchools(nextDeleted);
+
+    FirestoreSyncService.deleteItem('schools', id);
+    FirestoreSyncService.saveItem('deletedSchools', deletedRecord);
 
     return { 
       success: true, 
@@ -553,8 +649,16 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updatedAt: new Date().toISOString()
     };
 
-    setSchools(prev => [...prev, restoredSchool]);
-    setDeletedSchools(prev => prev.filter(s => s.id !== id));
+    const nextSchools = [...schools, restoredSchool];
+    const nextDeleted = deletedSchools.filter(s => s.id !== id);
+
+    setSchools(nextSchools);
+    setDeletedSchools(nextDeleted);
+    StorageService.saveSchools(nextSchools);
+    StorageService.saveDeletedSchools(nextDeleted);
+
+    FirestoreSyncService.saveItem('schools', restoredSchool);
+    FirestoreSyncService.deleteItem('deletedSchools', id);
 
     return { 
       success: true, 
@@ -564,7 +668,10 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const permanentlyDeleteSchool = (id: string) => {
     const target = deletedSchools.find(s => s.id === id);
-    setDeletedSchools(prev => prev.filter(s => s.id !== id));
+    const nextDeleted = deletedSchools.filter(s => s.id !== id);
+    setDeletedSchools(nextDeleted);
+    StorageService.saveDeletedSchools(nextDeleted);
+    FirestoreSyncService.deleteItem('deletedSchools', id);
 
     return { 
       success: true, 
@@ -584,9 +691,9 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (empPromos.length > 0) {
       const latest = empPromos[0];
-      setEmployees(empList => empList.map(e => {
+      const nextEmployees = employees.map(e => {
         if (e.id === employeeId) {
-          return {
+          const updatedEmp = {
             ...e,
             currentPosition: latest.position,
             itemNumber: latest.itemNumber || e.itemNumber,
@@ -594,9 +701,13 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
             appointmentDocumentUrl: latest.appointmentPaperUrl || e.appointmentDocumentUrl,
             updatedAt: new Date().toISOString()
           };
+          FirestoreSyncService.saveItem('employees', updatedEmp);
+          return updatedEmp;
         }
         return e;
-      }));
+      });
+      setEmployees(nextEmployees);
+      StorageService.saveEmployees(nextEmployees);
     }
   };
 
@@ -606,33 +717,33 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: `prm-${Date.now()}`,
       createdAt: new Date().toISOString()
     };
-    setPromotions(prev => {
-      const nextPromos = [...prev, newRecord];
-      syncEmployeePositionFromPromotions(promo.employeeId, nextPromos);
-      return nextPromos;
-    });
+    const nextPromos = [...promotions, newRecord];
+    setPromotions(nextPromos);
+    StorageService.savePromotions(nextPromos);
+    FirestoreSyncService.saveItem('promotions', newRecord);
+    syncEmployeePositionFromPromotions(promo.employeeId, nextPromos);
   };
 
   const updatePromotion = (id: string, promoData: Partial<PromotionRecord>) => {
-    setPromotions(prev => {
-      const nextPromos = prev.map(p => p.id === id ? { ...p, ...promoData } : p);
-      const target = nextPromos.find(p => p.id === id);
-      if (target) {
-        syncEmployeePositionFromPromotions(target.employeeId, nextPromos);
-      }
-      return nextPromos;
-    });
+    const target = promotions.find(p => p.id === id);
+    if (!target) return;
+    const updatedPromo: PromotionRecord = { ...target, ...promoData };
+    const nextPromos = promotions.map(p => p.id === id ? updatedPromo : p);
+    setPromotions(nextPromos);
+    StorageService.savePromotions(nextPromos);
+    FirestoreSyncService.saveItem('promotions', updatedPromo);
+    syncEmployeePositionFromPromotions(target.employeeId, nextPromos);
   };
 
   const deletePromotion = (id: string) => {
-    setPromotions(prev => {
-      const target = prev.find(p => p.id === id);
-      const nextPromos = prev.filter(p => p.id !== id);
-      if (target) {
-        syncEmployeePositionFromPromotions(target.employeeId, nextPromos);
-      }
-      return nextPromos;
-    });
+    const target = promotions.find(p => p.id === id);
+    const nextPromos = promotions.filter(p => p.id !== id);
+    setPromotions(nextPromos);
+    StorageService.savePromotions(nextPromos);
+    FirestoreSyncService.deleteItem('promotions', id);
+    if (target) {
+      syncEmployeePositionFromPromotions(target.employeeId, nextPromos);
+    }
   };
 
   // School Assignment Actions
@@ -642,15 +753,27 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: `sa-${Date.now()}`,
       createdAt: new Date().toISOString()
     };
-    setSchoolAssignments(prev => [...prev, newRecord]);
+    const nextAssignments = [...schoolAssignments, newRecord];
+    setSchoolAssignments(nextAssignments);
+    StorageService.saveSchoolAssignments(nextAssignments);
+    FirestoreSyncService.saveItem('schoolAssignments', newRecord);
   };
 
   const updateSchoolAssignment = (id: string, assignment: Partial<SchoolAssignmentRecord>) => {
-    setSchoolAssignments(prev => prev.map(sa => sa.id === id ? { ...sa, ...assignment } : sa));
+    const target = schoolAssignments.find(sa => sa.id === id);
+    if (!target) return;
+    const updated: SchoolAssignmentRecord = { ...target, ...assignment };
+    const nextAssignments = schoolAssignments.map(sa => sa.id === id ? updated : sa);
+    setSchoolAssignments(nextAssignments);
+    StorageService.saveSchoolAssignments(nextAssignments);
+    FirestoreSyncService.saveItem('schoolAssignments', updated);
   };
 
   const deleteSchoolAssignment = (id: string) => {
-    setSchoolAssignments(prev => prev.filter(sa => sa.id !== id));
+    const nextAssignments = schoolAssignments.filter(sa => sa.id !== id);
+    setSchoolAssignments(nextAssignments);
+    StorageService.saveSchoolAssignments(nextAssignments);
+    FirestoreSyncService.deleteItem('schoolAssignments', id);
   };
 
   // Special Orders & Service Credits
@@ -662,99 +785,22 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: now,
       updatedAt: now
     };
-    setSpecialOrders(prev => [...prev, newSO]);
+    const nextSOs = [...specialOrders, newSO];
+    setSpecialOrders(nextSOs);
+    StorageService.saveSpecialOrders(nextSOs);
+    FirestoreSyncService.saveItem('specialOrders', newSO);
     return newSO;
   };
 
   const updateSpecialOrder = (id: string, soData: Partial<SpecialOrder>) => {
     const now = new Date().toISOString();
-    setSpecialOrders(prev => prev.map(so => so.id === id ? { ...so, ...soData, updatedAt: now } : so));
-    if (soData.soNumber) {
-      setEarnedCredits(prev => prev.map(ec => ec.soId === id ? { ...ec, soNumber: soData.soNumber! } : ec));
-      setUsedCredits(prev => prev.map(uc => uc.soId === id ? { ...uc, soNumber: soData.soNumber! } : uc));
-    }
-  };
-
-  const updateSpecialOrderFull = (
-    id: string,
-    soData: Partial<SpecialOrder>,
-    allocations: { id?: string; employeeId: string; earnedCredits: number; remarks?: string }[],
-    deletedAllocationIds?: string[]
-  ) => {
     const target = specialOrders.find(s => s.id === id);
-    if (!target) return { success: false, message: 'Special Order not found.' };
-
-    const now = new Date().toISOString();
-    const newSONumber = soData.soNumber ? soData.soNumber.trim() : target.soNumber;
-
-    // 1. Update the Special Order record
-    setSpecialOrders(prev => prev.map(so => so.id === id ? { ...so, ...soData, updatedAt: now } : so));
-
-    // 2. If soNumber changed, update usedCredits
-    if (soData.soNumber && soData.soNumber !== target.soNumber) {
-      setUsedCredits(prev => prev.map(uc => uc.soId === id ? { ...uc, soNumber: newSONumber } : uc));
-    }
-
-    // 3. Update earned credits:
-    const deletedSet = new Set(deletedAllocationIds || []);
-
-    setEarnedCredits(prev => {
-      // Remove any explicit deleted allocation IDs
-      let currentList = prev.filter(ec => !deletedSet.has(ec.id));
-
-      const existingAllocMap = new Map<string, typeof allocations[0]>();
-      const newAllocations: typeof allocations = [];
-
-      allocations.forEach(a => {
-        if (a.id) {
-          existingAllocMap.set(a.id, a);
-        } else {
-          newAllocations.push(a);
-        }
-      });
-
-      // Update existing
-      currentList = currentList.map(ec => {
-        if (ec.soId === id) {
-          const updated = existingAllocMap.get(ec.id);
-          if (updated) {
-            return {
-              ...ec,
-              soNumber: newSONumber,
-              earnedCredits: updated.earnedCredits,
-              remarks: updated.remarks !== undefined ? updated.remarks : ec.remarks
-            };
-          } else if (soData.soNumber) {
-            return {
-              ...ec,
-              soNumber: newSONumber
-            };
-          }
-        }
-        return ec;
-      });
-
-      // Append new allocations
-      if (newAllocations.length > 0) {
-        const newEntries: ServiceCreditEarned[] = newAllocations.map((na, idx) => ({
-          id: `sce-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
-          soId: id,
-          soNumber: newSONumber,
-          employeeId: na.employeeId,
-          earnedCredits: na.earnedCredits,
-          remarks: na.remarks || `Granted via ${newSONumber}`,
-          createdAt: now
-        }));
-        currentList = [...currentList, ...newEntries];
-      }
-
-      return currentList;
-    });
-
-    return {
-      success: true,
-      message: `Special Order ${newSONumber} has been successfully updated.`
-    };
+    if (!target) return;
+    const updated: SpecialOrder = { ...target, ...soData, updatedAt: now };
+    const nextSOs = specialOrders.map(so => so.id === id ? updated : so);
+    setSpecialOrders(nextSOs);
+    StorageService.saveSpecialOrders(nextSOs);
+    FirestoreSyncService.saveItem('specialOrders', updated);
   };
 
   const deleteSpecialOrder = (id: string, reason?: string) => {
@@ -775,8 +821,16 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       totalGrantedCredits: totalGranted
     };
 
-    setDeletedSpecialOrders(prev => [deletedSO, ...prev.filter(so => so.id !== id)]);
-    setSpecialOrders(prev => prev.filter(so => so.id !== id));
+    const nextSOs = specialOrders.filter(so => so.id !== id);
+    const nextDeleted = [deletedSO, ...deletedSpecialOrders.filter(so => so.id !== id)];
+
+    setSpecialOrders(nextSOs);
+    setDeletedSpecialOrders(nextDeleted);
+    StorageService.saveSpecialOrders(nextSOs);
+    StorageService.saveDeletedSpecialOrders(nextDeleted);
+
+    FirestoreSyncService.deleteItem('specialOrders', id);
+    FirestoreSyncService.saveItem('deletedSpecialOrders', deletedSO);
 
     return {
       success: true,
@@ -793,8 +847,16 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...rest
     };
 
-    setSpecialOrders(prev => [...prev, restoredSO]);
-    setDeletedSpecialOrders(prev => prev.filter(so => so.id !== id));
+    const nextSOs = [...specialOrders, restoredSO];
+    const nextDeleted = deletedSpecialOrders.filter(so => so.id !== id);
+
+    setSpecialOrders(nextSOs);
+    setDeletedSpecialOrders(nextDeleted);
+    StorageService.saveSpecialOrders(nextSOs);
+    StorageService.saveDeletedSpecialOrders(nextDeleted);
+
+    FirestoreSyncService.saveItem('specialOrders', restoredSO);
+    FirestoreSyncService.deleteItem('deletedSpecialOrders', id);
 
     return {
       success: true,
@@ -803,7 +865,10 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const permanentlyDeleteSpecialOrder = (id: string) => {
-    setDeletedSpecialOrders(prev => prev.filter(so => so.id !== id));
+    const nextDeleted = deletedSpecialOrders.filter(so => so.id !== id);
+    setDeletedSpecialOrders(nextDeleted);
+    StorageService.saveDeletedSpecialOrders(nextDeleted);
+    FirestoreSyncService.deleteItem('deletedSpecialOrders', id);
     return {
       success: true,
       message: 'Special Order permanently erased from the system.'
@@ -816,13 +881,16 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: `sce-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       createdAt: new Date().toISOString()
     };
-    setEarnedCredits(prev => [...prev, newCredit]);
+    const nextEarned = [...earnedCredits, newCredit];
+    setEarnedCredits(nextEarned);
+    StorageService.saveEarnedCredits(nextEarned);
+    FirestoreSyncService.saveItem('serviceCreditsEarned', newCredit);
   };
 
   const addEarnedCreditsBatch = (soId: string, soNumber: string, assignments: { employeeId: string; earnedCredits: number; remarks?: string }[]) => {
     const now = new Date().toISOString();
     const newEntries: ServiceCreditEarned[] = assignments.map((as, idx) => ({
-      id: `sce-${Date.now()}-${idx}`,
+      id: `sce-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
       soId,
       soNumber,
       employeeId: as.employeeId,
@@ -830,15 +898,31 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       remarks: as.remarks || '',
       createdAt: now
     }));
-    setEarnedCredits(prev => [...prev, ...newEntries]);
+    const nextEarned = [...earnedCredits, ...newEntries];
+    setEarnedCredits(nextEarned);
+    StorageService.saveEarnedCredits(nextEarned);
+    FirestoreSyncService.batchSaveItems('serviceCreditsEarned', newEntries);
   };
 
-  const updateEarnedCredit = (id: string, earnedCredits: number, remarks?: string) => {
-    setEarnedCredits(prev => prev.map(ec => ec.id === id ? { ...ec, earnedCredits, remarks: remarks !== undefined ? remarks : ec.remarks } : ec));
+  const updateEarnedCredit = (id: string, earnedCreditsVal: number, remarks?: string) => {
+    const target = earnedCredits.find(ec => ec.id === id);
+    if (!target) return;
+    const updated: ServiceCreditEarned = {
+      ...target,
+      earnedCredits: earnedCreditsVal,
+      remarks: remarks !== undefined ? remarks : target.remarks
+    };
+    const nextEarned = earnedCredits.map(ec => ec.id === id ? updated : ec);
+    setEarnedCredits(nextEarned);
+    StorageService.saveEarnedCredits(nextEarned);
+    FirestoreSyncService.saveItem('serviceCreditsEarned', updated);
   };
 
   const deleteEarnedCredit = (id: string) => {
-    setEarnedCredits(prev => prev.filter(ec => ec.id !== id));
+    const nextEarned = earnedCredits.filter(ec => ec.id !== id);
+    setEarnedCredits(nextEarned);
+    StorageService.saveEarnedCredits(nextEarned);
+    FirestoreSyncService.deleteItem('serviceCreditsEarned', id);
   };
 
   // Helper: Available credits for employee in specific Special Order
@@ -896,12 +980,19 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: new Date().toISOString()
     };
 
-    setUsedCredits(prev => [...prev, newUsed]);
+    const nextUsed = [...usedCredits, newUsed];
+    setUsedCredits(nextUsed);
+    StorageService.saveUsedCredits(nextUsed);
+    FirestoreSyncService.saveItem('serviceCreditsUsed', newUsed);
+
     return { success: true, message: 'Service credit usage recorded successfully.' };
   };
 
   const deleteUsedCredit = (id: string) => {
-    setUsedCredits(prev => prev.filter(uc => uc.id !== id));
+    const nextUsed = usedCredits.filter(uc => uc.id !== id);
+    setUsedCredits(nextUsed);
+    StorageService.saveUsedCredits(nextUsed);
+    FirestoreSyncService.deleteItem('serviceCreditsUsed', id);
   };
 
   // Leave Actions
@@ -911,11 +1002,20 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: `lvr-${Date.now()}`,
       createdAt: new Date().toISOString()
     };
-    setLeaveRecords(prev => [...prev, newRecord]);
+    const nextLeaves = [...leaveRecords, newRecord];
+    setLeaveRecords(nextLeaves);
+    StorageService.saveLeaveRecords(nextLeaves);
+    FirestoreSyncService.saveItem('leaveRecords', newRecord);
   };
 
   const updateLeaveRecord = (id: string, leave: Partial<LeaveRecord>) => {
-    setLeaveRecords(prev => prev.map(l => l.id === id ? { ...l, ...leave } : l));
+    const target = leaveRecords.find(l => l.id === id);
+    if (!target) return;
+    const updated: LeaveRecord = { ...target, ...leave };
+    const nextLeaves = leaveRecords.map(l => l.id === id ? updated : l);
+    setLeaveRecords(nextLeaves);
+    StorageService.saveLeaveRecords(nextLeaves);
+    FirestoreSyncService.saveItem('leaveRecords', updated);
   };
 
   const deleteLeaveRecord = (id: string, reason?: string) => {
@@ -934,8 +1034,16 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       schoolName: emp?.schoolName || ''
     };
 
-    setDeletedLeaveRecords(prev => [deletedRecord, ...prev.filter(l => l.id !== id)]);
-    setLeaveRecords(prev => prev.filter(l => l.id !== id));
+    const nextLeaves = leaveRecords.filter(l => l.id !== id);
+    const nextDeleted = [deletedRecord, ...deletedLeaveRecords.filter(l => l.id !== id)];
+
+    setLeaveRecords(nextLeaves);
+    setDeletedLeaveRecords(nextDeleted);
+    StorageService.saveLeaveRecords(nextLeaves);
+    StorageService.saveDeletedLeaveRecords(nextDeleted);
+
+    FirestoreSyncService.deleteItem('leaveRecords', id);
+    FirestoreSyncService.saveItem('deletedLeaveRecords', deletedRecord);
 
     return {
       success: true,
@@ -952,8 +1060,16 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...rest
     };
 
-    setLeaveRecords(prev => [...prev, restoredRecord]);
-    setDeletedLeaveRecords(prev => prev.filter(l => l.id !== id));
+    const nextLeaves = [...leaveRecords, restoredRecord];
+    const nextDeleted = deletedLeaveRecords.filter(l => l.id !== id);
+
+    setLeaveRecords(nextLeaves);
+    setDeletedLeaveRecords(nextDeleted);
+    StorageService.saveLeaveRecords(nextLeaves);
+    StorageService.saveDeletedLeaveRecords(nextDeleted);
+
+    FirestoreSyncService.saveItem('leaveRecords', restoredRecord);
+    FirestoreSyncService.deleteItem('deletedLeaveRecords', id);
 
     return {
       success: true,
@@ -963,7 +1079,10 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const permanentlyDeleteLeaveRecord = (id: string) => {
     const target = deletedLeaveRecords.find(l => l.id === id);
-    setDeletedLeaveRecords(prev => prev.filter(l => l.id !== id));
+    const nextDeleted = deletedLeaveRecords.filter(l => l.id !== id);
+    setDeletedLeaveRecords(nextDeleted);
+    StorageService.saveDeletedLeaveRecords(nextDeleted);
+    FirestoreSyncService.deleteItem('deletedLeaveRecords', id);
 
     return {
       success: true,
@@ -974,22 +1093,37 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // System Reset
   const resetSystemData = () => {
     StorageService.resetToDefault();
-    StorageService.saveDeletedEmployees([]);
-    StorageService.saveDeletedSchools([]);
-    StorageService.saveDeletedLeaveRecords([]);
-    StorageService.saveDeletedSpecialOrders([]);
-    setEmployees(StorageService.getEmployees());
+    const freshEmployees = StorageService.getEmployees();
+    const freshSchools = StorageService.getSchools();
+    const freshPromos = StorageService.getPromotions();
+    const freshAssignments = StorageService.getSchoolAssignments();
+    const freshSOs = StorageService.getSpecialOrders();
+    const freshEarned = StorageService.getEarnedCredits();
+    const freshUsed = StorageService.getUsedCredits();
+    const freshLeaves = StorageService.getLeaveRecords();
+
+    setEmployees(freshEmployees);
     setDeletedEmployees([]);
-    setSchools(StorageService.getSchools());
+    setSchools(freshSchools);
     setDeletedSchools([]);
     setDeletedLeaveRecords([]);
     setDeletedSpecialOrders([]);
-    setSpecialOrders(StorageService.getSpecialOrders());
-    setEarnedCredits(StorageService.getEarnedCredits());
-    setUsedCredits(StorageService.getUsedCredits());
-    setPromotions(StorageService.getPromotions());
-    setSchoolAssignments(StorageService.getSchoolAssignments());
-    setLeaveRecords(StorageService.getLeaveRecords());
+    setSpecialOrders(freshSOs);
+    setEarnedCredits(freshEarned);
+    setUsedCredits(freshUsed);
+    setPromotions(freshPromos);
+    setSchoolAssignments(freshAssignments);
+    setLeaveRecords(freshLeaves);
+
+    // Sync to Firestore
+    FirestoreSyncService.batchSaveItems('employees', freshEmployees);
+    FirestoreSyncService.batchSaveItems('schools', freshSchools);
+    FirestoreSyncService.batchSaveItems('promotions', freshPromos);
+    FirestoreSyncService.batchSaveItems('schoolAssignments', freshAssignments);
+    FirestoreSyncService.batchSaveItems('specialOrders', freshSOs);
+    FirestoreSyncService.batchSaveItems('serviceCreditsEarned', freshEarned);
+    FirestoreSyncService.batchSaveItems('serviceCreditsUsed', freshUsed);
+    FirestoreSyncService.batchSaveItems('leaveRecords', freshLeaves);
   };
 
   // Batch Import from Excel / Google Sheets
@@ -1003,6 +1137,7 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const now = new Date().toISOString();
     const updatedEmployeeList = [...employees];
+    const newPromosToBatch: PromotionRecord[] = [];
 
     newEmps.forEach(imp => {
       const empNum = imp.employeeNumber.trim();
@@ -1011,21 +1146,33 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (existingIdx >= 0) {
         const resolution = resolutions[empNum] || 'SKIP';
         if (resolution === 'UPDATE') {
-          updatedEmployeeList[existingIdx] = {
+          const updatedRecord = {
             ...updatedEmployeeList[existingIdx],
             ...imp,
-            id: updatedEmployeeList[existingIdx].id, // preserve ID
+            id: updatedEmployeeList[existingIdx].id,
             updatedAt: now
           };
+          updatedEmployeeList[existingIdx] = updatedRecord;
           updated++;
         } else if (resolution === 'KEEP_BOTH') {
           const newId = `emp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-          updatedEmployeeList.push({
+          const newRecord = {
             ...imp,
             id: newId,
             employeeNumber: `${empNum}-DUP`,
             createdAt: now,
             updatedAt: now
+          };
+          updatedEmployeeList.push(newRecord);
+          newPromosToBatch.push({
+            id: `prm-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            employeeId: newId,
+            position: newRecord.currentPosition || 'Teacher I',
+            itemNumber: newRecord.itemNumber || '',
+            appointmentDate: newRecord.dateOfLatestAppointment || now.split('T')[0],
+            appointmentPaperUrl: newRecord.appointmentDocumentUrl || '',
+            remarks: 'Initial Appointment from Import',
+            createdAt: now
           });
           added++;
         } else {
@@ -1033,17 +1180,38 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } else {
         const newId = `emp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-        updatedEmployeeList.push({
+        const newRecord = {
           ...imp,
           id: newId,
           createdAt: now,
           updatedAt: now
+        };
+        updatedEmployeeList.push(newRecord);
+        newPromosToBatch.push({
+          id: `prm-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          employeeId: newId,
+          position: newRecord.currentPosition || 'Teacher I',
+          itemNumber: newRecord.itemNumber || '',
+          appointmentDate: newRecord.dateOfLatestAppointment || now.split('T')[0],
+          appointmentPaperUrl: newRecord.appointmentDocumentUrl || '',
+          remarks: 'Initial Appointment from Import',
+          createdAt: now
         });
         added++;
       }
     });
 
     setEmployees(updatedEmployeeList);
+    StorageService.saveEmployees(updatedEmployeeList);
+    FirestoreSyncService.batchSaveItems('employees', updatedEmployeeList);
+
+    if (newPromosToBatch.length > 0) {
+      const nextPromos = [...promotions, ...newPromosToBatch];
+      setPromotions(nextPromos);
+      StorageService.savePromotions(nextPromos);
+      FirestoreSyncService.batchSaveItems('promotions', newPromosToBatch);
+    }
+
     return { added, updated, skipped };
   };
 
@@ -1095,7 +1263,6 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         addSpecialOrder,
         updateSpecialOrder,
-        updateSpecialOrderFull,
         deleteSpecialOrder,
         restoreSpecialOrder,
         permanentlyDeleteSpecialOrder,

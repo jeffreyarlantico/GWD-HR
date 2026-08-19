@@ -1,106 +1,50 @@
 import React, { useRef, useState } from 'react';
-import { Image, Upload, Trash2, CheckCircle2, AlertCircle, Loader2, FolderOpen, ExternalLink } from 'lucide-react';
+import { Image, Upload, Trash2, CheckCircle2 } from 'lucide-react';
 
 interface ProfilePhotoUploaderProps {
   photoUrl: string;
   onChange: (url: string) => void;
   employeeName?: string;
-  employeeId?: string;
 }
-
-const MAX_FILE_SIZE_BYTES = 1048576; // Strictly 1 MB (1,048,576 bytes)
-const TARGET_FOLDER_ID = '1oHwkVipP50ixdFSTFDHScld7VZtv9eHb';
 
 export const ProfilePhotoUploader: React.FC<ProfilePhotoUploaderProps> = ({
   photoUrl,
   onChange,
-  employeeName = 'Employee',
-  employeeId
+  employeeName = 'Employee'
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadNotice, setUploadNotice] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
 
-  // Handle File Selection with 1 MB Limit & Google Drive /api/upload
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    setErrorMessage('');
-    setUploadNotice('');
-
+  // Handle Local File Selection (Converts to Data URL for instant HRIS preview)
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      setErrorMessage('Please select a valid image file (JPG, PNG, WEBP).');
+      alert('Please select a valid image file (JPG, PNG, WEBP).');
       return;
     }
 
-    // Strict 1 MB validation
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      setErrorMessage(
-        `File size (${sizeMB} MB / ${file.size.toLocaleString()} bytes) exceeds the strict 1 MB limit (1,048,576 bytes). Please resize or compress the photo before uploading.`
-      );
-      if (e.target) e.target.value = '';
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image file size should be less than 5MB.');
       return;
     }
 
-    try {
-      setIsUploading(true);
-
-      // Attempt upload to /api/upload (Vercel Serverless Google Drive API)
-      const formData = new FormData();
-      const cleanName = `Photo_${employeeName.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-      formData.append('file', file, cleanName);
-      formData.append('name', cleanName);
-      formData.append('folderId', TARGET_FOLDER_ID);
-      if (employeeId) formData.append('employeeId', employeeId);
-
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.webViewLink) {
-          onChange(data.webViewLink);
-          setUploadNotice('Photo uploaded directly to Google Drive folder successfully!');
-          setTimeout(() => setUploadNotice(''), 4000);
-          return;
-        }
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const result = evt.target?.result as string;
+      if (result) {
+        onChange(result);
+        setUploadNotice('Photo uploaded and preview generated successfully!');
+        setTimeout(() => setUploadNotice(''), 4000);
       }
+    };
+    reader.readAsDataURL(file);
 
-      // Fallback to client data URL if /api/upload is in local mock mode
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        const result = evt.target?.result as string;
-        if (result) {
-          onChange(result);
-          setUploadNotice('Photo saved successfully!');
-          setTimeout(() => setUploadNotice(''), 4000);
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (err: any) {
-      console.warn('API upload encountered an issue, falling back to local photo preview:', err);
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        const result = evt.target?.result as string;
-        if (result) {
-          onChange(result);
-          setUploadNotice('Photo preview saved locally.');
-          setTimeout(() => setUploadNotice(''), 4000);
-        }
-      };
-      reader.readAsDataURL(file);
-    } finally {
-      setIsUploading(false);
-      if (e.target) e.target.value = '';
+    if (e.target) {
+      e.target.value = '';
     }
   };
-
-  const isGoogleDriveLink = photoUrl.includes('drive.google.com') || photoUrl.includes('docs.google.com');
 
   return (
     <div id="profile-photo-uploader-component" className="space-y-3">
@@ -108,12 +52,6 @@ export const ProfilePhotoUploader: React.FC<ProfilePhotoUploaderProps> = ({
         <label className="block text-xs font-bold text-slate-700">
           Profile Photo
         </label>
-        {photoUrl && isGoogleDriveLink && (
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
-            <FolderOpen className="w-3 h-3 text-emerald-600" />
-            Google Drive Synced
-          </span>
-        )}
       </div>
 
       {/* Main Container */}
@@ -125,14 +63,13 @@ export const ProfilePhotoUploader: React.FC<ProfilePhotoUploaderProps> = ({
           {/* Avatar Preview */}
           <div className="relative group">
             <div className="w-20 h-20 rounded-full overflow-hidden bg-slate-200 border-2 border-amber-400 shadow-sm flex items-center justify-center flex-shrink-0">
-              {isUploading ? (
-                <Loader2 className="w-8 h-8 text-amber-600 animate-spin" />
-              ) : photoUrl ? (
+              {photoUrl ? (
                 <img
                   src={photoUrl}
                   alt={employeeName}
                   className="w-full h-full object-cover"
                   onError={(e) => {
+                    // Fallback on broken image link
                     (e.target as HTMLElement).style.display = 'none';
                   }}
                 />
@@ -141,7 +78,7 @@ export const ProfilePhotoUploader: React.FC<ProfilePhotoUploaderProps> = ({
               )}
             </div>
 
-            {photoUrl && !isUploading && (
+            {photoUrl && (
               <button
                 type="button"
                 onClick={() => onChange('')}
@@ -156,38 +93,15 @@ export const ProfilePhotoUploader: React.FC<ProfilePhotoUploaderProps> = ({
           {/* Action Buttons */}
           <div className="flex-1 space-y-2 text-center sm:text-left w-full">
             <div className="flex flex-wrap items-center gap-2">
-              {/* Upload to Google Drive */}
+              {/* Upload Local File */}
               <button
                 type="button"
-                disabled={isUploading}
                 onClick={() => fileInputRef.current?.click()}
-                className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5"
               >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Uploading (Drive)...</span>
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4" />
-                    <span>Upload Photo (Max 1 MB)</span>
-                  </>
-                )}
+                <Upload className="w-4 h-4" />
+                <span>Select Photo File</span>
               </button>
-
-              {photoUrl && isGoogleDriveLink && (
-                <a
-                  href={photoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-2.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition flex items-center gap-1"
-                  title="View on Google Drive"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Drive</span>
-                </a>
-              )}
 
               {photoUrl && (
                 <button
@@ -196,7 +110,7 @@ export const ProfilePhotoUploader: React.FC<ProfilePhotoUploaderProps> = ({
                   className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>Remove</span>
+                  <span>Remove Photo</span>
                 </button>
               )}
 
@@ -210,22 +124,14 @@ export const ProfilePhotoUploader: React.FC<ProfilePhotoUploaderProps> = ({
             </div>
 
             <p className="text-[11px] text-slate-500">
-              Uploads directly to Google Drive folder <code className="text-amber-700 font-mono text-[10px]">1oHwkVipP50ixdFSTFDHScld7VZtv9eHb</code> • Strict limit: <b>Max 1 MB (1,048,576 bytes)</b>
+              Select a photo file from your computer (JPG, PNG, WEBP, up to 5MB) or enter an image URL below.
             </p>
           </div>
         </div>
 
-        {/* Error Notice */}
-        {errorMessage && (
-          <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-xs font-semibold text-rose-700 flex items-center gap-2 animate-fade-in">
-            <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
-            <span>{errorMessage}</span>
-          </div>
-        )}
-
         {/* Success Notice */}
         {uploadNotice && (
-          <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-semibold text-emerald-800 flex items-center gap-2 animate-fade-in">
+          <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-semibold text-emerald-800 flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
             <span>{uploadNotice}</span>
           </div>
@@ -241,7 +147,7 @@ export const ProfilePhotoUploader: React.FC<ProfilePhotoUploaderProps> = ({
               type="text"
               value={photoUrl}
               onChange={(e) => onChange(e.target.value)}
-              placeholder="https://example.com/photo.jpg or Google Drive URL"
+              placeholder="https://example.com/photo.jpg"
               className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
             />
             <Image className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
@@ -252,4 +158,3 @@ export const ProfilePhotoUploader: React.FC<ProfilePhotoUploaderProps> = ({
     </div>
   );
 };
-
