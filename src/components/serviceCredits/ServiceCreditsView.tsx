@@ -16,11 +16,14 @@ import {
   MinusCircle,
   Filter,
   Eye,
-  Info
+  Info,
+  Edit3
 } from 'lucide-react';
 import { SpecialOrder } from '../../types';
 import { ConfirmDeleteSpecialOrderModal } from './ConfirmDeleteSpecialOrderModal';
 import { SpecialOrderDetailsModal } from './SpecialOrderDetailsModal';
+import { EditSpecialOrderModal } from './EditSpecialOrderModal';
+import { SpecialOrderAttachmentUploader } from '../common/SpecialOrderAttachmentUploader';
 
 export const ServiceCreditsView: React.FC = () => {
   const { 
@@ -30,6 +33,7 @@ export const ServiceCreditsView: React.FC = () => {
     employees, 
     schools,
     addSpecialOrder, 
+    updateSpecialOrderFull,
     deleteSpecialOrder,
     addEarnedCreditsBatch, 
     addUsedCredit, 
@@ -46,6 +50,7 @@ export const ServiceCreditsView: React.FC = () => {
   const [showAddSOModal, setShowAddSOModal] = useState(false);
   const [showDeductModal, setShowDeductModal] = useState(false);
   const [selectedSOForDetails, setSelectedSOForDetails] = useState<SpecialOrder | null>(null);
+  const [selectedSOForEdit, setSelectedSOForEdit] = useState<SpecialOrder | null>(null);
 
   // Deletion Modal state for Special Orders
   const [soToDelete, setSoToDelete] = useState<{
@@ -196,6 +201,31 @@ export const ServiceCreditsView: React.FC = () => {
       return empName.includes(q) || soNum.includes(q) || remarks.includes(q);
     });
   }, [usedCredits, employees, filterSearch]);
+
+  // Open Document (Data URL, Drive, or external link)
+  const handleOpenDoc = (url: string) => {
+    if (!url) return;
+    if (url.startsWith('data:')) {
+      const win = window.open();
+      if (win) {
+        if (url.startsWith('data:application/pdf')) {
+          win.document.write(
+            `<iframe src="${url}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`
+          );
+        } else if (url.startsWith('data:image')) {
+          win.document.write(
+            `<div style="display:flex;justify-content:center;align-items:center;min-height:100vh;background:#0f172a;"><img src="${url}" style="max-width:100%;max-height:100vh;object-fit:contain;"/></div>`
+          );
+        } else {
+          win.document.write(
+            `<div style="font-family:sans-serif;padding:2rem;text-align:center;"><h2>Special Order Document</h2><a href="${url}" download="special_order_document">Click here to download file</a></div>`
+          );
+        }
+      }
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   // Handle Add SO + Assign Credits
   const handleSaveSO = (e: React.FormEvent) => {
@@ -430,18 +460,29 @@ export const ServiceCreditsView: React.FC = () => {
                         <span className="hidden sm:inline">Details</span>
                       </button>
 
+                      {role === 'ADMIN' && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSOForEdit(so)}
+                          className="p-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 border border-amber-300 rounded-lg transition text-xs font-bold flex items-center space-x-1 shadow-2xs"
+                          title="Edit Special Order Details and Allocations"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-amber-700" />
+                          <span className="hidden sm:inline">Edit</span>
+                        </button>
+                      )}
+
                       {so.soDocumentUrl && (
-                        <a
-                          href={so.soDocumentUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDoc(so.soDocumentUrl!)}
                           className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition text-xs font-bold flex items-center space-x-1"
-                          title="Open attached Special Order document in OneDrive"
+                          title="Open attached Special Order document"
                         >
                           <FileText className="w-3.5 h-3.5" />
                           <span className="hidden sm:inline">SO Doc</span>
                           <ExternalLink className="w-3 h-3" />
-                        </a>
+                        </button>
                       )}
 
                       {role === 'ADMIN' && (
@@ -729,13 +770,12 @@ export const ServiceCreditsView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">SO Document Reference (OneDrive Link)</label>
-                <input
-                  type="url"
-                  value={soDocumentUrl}
-                  onChange={(e) => setSoDocumentUrl(e.target.value)}
-                  placeholder="https://onedrive.live.com/view.aspx?resid=..."
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                <SpecialOrderAttachmentUploader
+                  documentUrl={soDocumentUrl}
+                  onChange={setSoDocumentUrl}
+                  soNumber={soNumber || 'Special Order'}
+                  label="Official Special Order Document / Attachment"
+                  helperText="Upload official scanned PDF or image copy of the approved Special Order, or select from Google Drive."
                 />
               </div>
 
@@ -1121,7 +1161,42 @@ export const ServiceCreditsView: React.FC = () => {
         onDeleteUsedCredit={(creditId) => {
           deleteUsedCredit(creditId);
         }}
+        onEditSpecialOrder={(so) => {
+          setSelectedSOForDetails(so);
+        }}
       />
+
+      {/* Edit Special Order Modal */}
+      {selectedSOForEdit && (
+        <EditSpecialOrderModal
+          isOpen={Boolean(selectedSOForEdit)}
+          onClose={() => setSelectedSOForEdit(null)}
+          specialOrder={selectedSOForEdit}
+          employees={employees}
+          schools={schools}
+          earnedCredits={earnedCredits}
+          usedCredits={usedCredits}
+          onSave={(payload) => {
+            const result = updateSpecialOrderFull(
+              payload.id,
+              {
+                soNumber: payload.soNumber,
+                soDate: payload.soDate,
+                title: payload.title,
+                soDocumentUrl: payload.soDocumentUrl
+              },
+              payload.allocations,
+              payload.deletedAllocationIds
+            );
+
+            if (result.success) {
+              setSoNotification({ type: 'success', message: result.message });
+              setTimeout(() => setSoNotification(null), 4000);
+            }
+            return result;
+          }}
+        />
+      )}
 
     </div>
   );

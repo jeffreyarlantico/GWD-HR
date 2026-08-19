@@ -59,6 +59,12 @@ interface HRISContextType {
   // Actions - Special Orders & Service Credits
   addSpecialOrder: (so: Omit<SpecialOrder, 'id' | 'createdAt' | 'updatedAt'>) => SpecialOrder;
   updateSpecialOrder: (id: string, so: Partial<SpecialOrder>) => void;
+  updateSpecialOrderFull: (
+    id: string,
+    soData: Partial<SpecialOrder>,
+    allocations: { id?: string; employeeId: string; earnedCredits: number; remarks?: string }[],
+    deletedAllocationIds?: string[]
+  ) => { success: boolean; message: string };
   deleteSpecialOrder: (id: string, reason?: string) => { success: boolean; message: string };
   restoreSpecialOrder: (id: string) => { success: boolean; message: string };
   permanentlyDeleteSpecialOrder: (id: string) => { success: boolean; message: string };
@@ -663,6 +669,92 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateSpecialOrder = (id: string, soData: Partial<SpecialOrder>) => {
     const now = new Date().toISOString();
     setSpecialOrders(prev => prev.map(so => so.id === id ? { ...so, ...soData, updatedAt: now } : so));
+    if (soData.soNumber) {
+      setEarnedCredits(prev => prev.map(ec => ec.soId === id ? { ...ec, soNumber: soData.soNumber! } : ec));
+      setUsedCredits(prev => prev.map(uc => uc.soId === id ? { ...uc, soNumber: soData.soNumber! } : uc));
+    }
+  };
+
+  const updateSpecialOrderFull = (
+    id: string,
+    soData: Partial<SpecialOrder>,
+    allocations: { id?: string; employeeId: string; earnedCredits: number; remarks?: string }[],
+    deletedAllocationIds?: string[]
+  ) => {
+    const target = specialOrders.find(s => s.id === id);
+    if (!target) return { success: false, message: 'Special Order not found.' };
+
+    const now = new Date().toISOString();
+    const newSONumber = soData.soNumber ? soData.soNumber.trim() : target.soNumber;
+
+    // 1. Update the Special Order record
+    setSpecialOrders(prev => prev.map(so => so.id === id ? { ...so, ...soData, updatedAt: now } : so));
+
+    // 2. If soNumber changed, update usedCredits
+    if (soData.soNumber && soData.soNumber !== target.soNumber) {
+      setUsedCredits(prev => prev.map(uc => uc.soId === id ? { ...uc, soNumber: newSONumber } : uc));
+    }
+
+    // 3. Update earned credits:
+    const deletedSet = new Set(deletedAllocationIds || []);
+
+    setEarnedCredits(prev => {
+      // Remove any explicit deleted allocation IDs
+      let currentList = prev.filter(ec => !deletedSet.has(ec.id));
+
+      const existingAllocMap = new Map<string, typeof allocations[0]>();
+      const newAllocations: typeof allocations = [];
+
+      allocations.forEach(a => {
+        if (a.id) {
+          existingAllocMap.set(a.id, a);
+        } else {
+          newAllocations.push(a);
+        }
+      });
+
+      // Update existing
+      currentList = currentList.map(ec => {
+        if (ec.soId === id) {
+          const updated = existingAllocMap.get(ec.id);
+          if (updated) {
+            return {
+              ...ec,
+              soNumber: newSONumber,
+              earnedCredits: updated.earnedCredits,
+              remarks: updated.remarks !== undefined ? updated.remarks : ec.remarks
+            };
+          } else if (soData.soNumber) {
+            return {
+              ...ec,
+              soNumber: newSONumber
+            };
+          }
+        }
+        return ec;
+      });
+
+      // Append new allocations
+      if (newAllocations.length > 0) {
+        const newEntries: ServiceCreditEarned[] = newAllocations.map((na, idx) => ({
+          id: `sce-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+          soId: id,
+          soNumber: newSONumber,
+          employeeId: na.employeeId,
+          earnedCredits: na.earnedCredits,
+          remarks: na.remarks || `Granted via ${newSONumber}`,
+          createdAt: now
+        }));
+        currentList = [...currentList, ...newEntries];
+      }
+
+      return currentList;
+    });
+
+    return {
+      success: true,
+      message: `Special Order ${newSONumber} has been successfully updated.`
+    };
   };
 
   const deleteSpecialOrder = (id: string, reason?: string) => {
@@ -1003,6 +1095,7 @@ export const HRISProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         addSpecialOrder,
         updateSpecialOrder,
+        updateSpecialOrderFull,
         deleteSpecialOrder,
         restoreSpecialOrder,
         permanentlyDeleteSpecialOrder,
